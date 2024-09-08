@@ -78,8 +78,8 @@ class PiApplication(object):
 
         # Create directories where pictures are saved
         savedir = config.get('GENERAL', 'directory')
-        if osp.isdir(savedir) and config.getboolean('GENERAL', 'debug'):
-            shutil.rmtree(savedir)
+        # if osp.isdir(savedir) and config.getboolean('GENERAL', 'debug'):
+        #     shutil.rmtree(savedir)
         if not osp.isdir(savedir):
             # Get path of default directory
             default_savedir = config.get('GENERAL', 'default_directory')
