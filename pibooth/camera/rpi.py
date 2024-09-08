@@ -104,7 +104,7 @@ class RpiCamera(BaseCamera):
         self._cam.start_preview(resolution=(rect.width, rect.height), hflip=flip,
                                 fullscreen=False, window=tuple(rect))
 
-    def preview_countdown(self, timeout, alpha=60):
+    def preview_countdown(self, timeout, alpha=60, flash_led=None):
         """Show a countdown of `timeout` seconds on the preview.
         Returns when the countdown is finished.
         """
@@ -119,6 +119,9 @@ class RpiCamera(BaseCamera):
             time.sleep(1)
             timeout -= 1
             self._hide_overlay()
+            # Enable flash before taking the picture
+            if timeout == 1:
+                flash_led.on()
 
         self._show_overlay(get_translated_text('smile'), alpha)
 

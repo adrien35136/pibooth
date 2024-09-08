@@ -154,7 +154,7 @@ class CvCamera(BaseCamera):
         self.preview_flip = flip
         self._window.show_image(self._get_preview_image())
 
-    def preview_countdown(self, timeout, alpha=80):
+    def preview_countdown(self, timeout, alpha=80, flash_led=None):
         """Show a countdown of `timeout` seconds on the preview.
         Returns when the countdown is finished.
         """

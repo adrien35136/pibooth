@@ -92,7 +92,7 @@ class BaseCamera(object):
         """
         raise NotImplementedError
 
-    def preview_countdown(self, timeout, alpha=60):
+    def preview_countdown(self, timeout, alpha=60, flash_led=None):
         """Show a countdown of `timeout` seconds on the preview.
         Returns when the countdown is finished.
         """

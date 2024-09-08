@@ -12,6 +12,7 @@ from pibooth.pictures import sizing
 from pibooth.utils import LOGGER, PoolingTimer, pkill
 from pibooth.language import get_translated_text
 from pibooth.camera.base import BaseCamera
+from gpiozero import LED
 
 
 def get_gp_camera_proxy(port=None):
@@ -219,7 +220,7 @@ class GpCamera(BaseCamera):
                 self.set_config_value('actions', 'viewfinder', 1)
             self._window.show_image(self._get_preview_image())
 
-    def preview_countdown(self, timeout, alpha=80):
+    def preview_countdown(self, timeout, alpha=80, flash_led=None):
         """Show a countdown of `timeout` seconds on the preview.
         Returns when the countdown is finished.
         """
@@ -237,6 +238,10 @@ class GpCamera(BaseCamera):
                 self._show_overlay(str(remaining), alpha)
                 timeout = remaining
                 shown = False
+       
+            # Enable flash before taking the picture
+            if remaining == 1:
+                flash_led.on()
 
             updated_rect = None
             if self._preview_compatible:
