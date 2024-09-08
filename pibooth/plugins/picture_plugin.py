@@ -105,10 +105,10 @@ class PicturePlugin(object):
         LOGGER.info("Saving raw captures")
         captures = app.camera.get_captures()
 
-        savedir = cfg.get('GENERAL', 'directory', 'path')
+        savedir = cfg.get('GENERAL', 'directory')
         if not osp.isdir(savedir):
             # Get path of default directory
-            savedir = cfg.get('GENERAL', 'default_directory', 'path')
+            savedir = cfg.get('GENERAL', 'default_directory')
         rawdir = osp.join(savedir, "raw", app.capture_date)
         os.makedirs(rawdir)
 
