@@ -95,8 +95,7 @@ DEFAULT = {
         'finished': "Gracias",
         'oops': "Maldición! Algo salió mal",
     },
-    'fr': {
-        'intro': "Faire une photo",
+    'fr': {"vous voulez faire une photo ? Appuyez sur l'icône ci-dessous",
         'intro_print': "Ou sinon\ntu peux toujours\nimprimer\ncette photo",
         'choose': "Choisis ton format",
         '1': "1 photo",
@@ -105,7 +104,7 @@ DEFAULT = {
         '4': "4 photos",
         'chosen': "C'est parti !",
         'smile': "Souriez !",
-        'processing': "Préparation du montage",
+        'processing': "Préparation du montage en cours",
         'print': "Imprimer la photo ?",
         'print_forget': "Oublie\ncette photo\ns'il te plait",
         'finished': "Merci",
