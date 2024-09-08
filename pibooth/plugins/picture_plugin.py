@@ -109,8 +109,9 @@ class PicturePlugin(object):
         if not osp.isdir(savedir):
             # Get path of default directory
             savedir = cfg.get('GENERAL', 'default_directory')
-        # rawdir = osp.join(savedir, "raw", app.capture_date)
-        # os.makedirs(rawdir)
+        rawdir = osp.join(savedir, "raw")
+        if not osp.isdir(rawdir):
+            os.makedirs(rawdir)
 
         for capture in captures:
             count = captures.index(capture)
