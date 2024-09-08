@@ -33,7 +33,7 @@ DEFAULT = odict((
                  "Path to save pictures (list of quoted paths accepted)",
                  None, None)),
             ("default_directory",
-                ("/home/adrien/Images/photos_pibooth",
+                ("/home/pi/Images/photos_pibooth",
                  "Default Path to save pictures (list of quoted paths accepted)",
                  None, None)),
             ("autostart",
