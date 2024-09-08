@@ -15,6 +15,12 @@ gpio=21=op,dh
 
 Add the following to your /boot/config.txt and reboot: `hdmi_blanking=1`
 
+# Ajouter un plugin dans pibooth
+
+Exemple: Déplacer le plugin "pibooth_getready_text.py" situé dans le repertoire "/docs/sources" dans le repertoire pibooth/plugins
+Mettre ensuite le chemin du plugin dans le ficher de config pour qu'il soit prit en compte (.config/pibooth/pibooth.cfg):
+plugins = "/home/adrien/Documents/pibooth/pibooth/plugins/pibooth_getready_text.py
+
 ## Problem when starting Picamera Preview with full resolution (out of resources)
 
 The Raspberry Pi's camera module relies on GPU memory for processing. By default, the Raspberry Pi allocates a small portion of memory to the GPU, which might not be enough for both Picamera and OpenCV to work together.
