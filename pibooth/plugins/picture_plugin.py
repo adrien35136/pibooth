@@ -122,7 +122,7 @@ class PicturePlugin(object):
             filename = f"pibooth_{timestamp}_{count:03}.jpg"
 
             # Sauvegarde dans le répertoire spécifié
-            capture.save(osp.join(savedir, filename))
+            capture.save(osp.join(savedir, "raw", filename))
             # capture.save(osp.join(rawdir, "pibooth_{:03}.jpg".format(count)))
 
         LOGGER.info("Creating the final picture")
