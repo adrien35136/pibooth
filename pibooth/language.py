@@ -95,7 +95,8 @@ DEFAULT = {
         'finished': "Gracias",
         'oops': "Maldición! Algo salió mal",
     },
-    'fr': {"vous voulez faire une photo ? Appuyez sur l'icône ci-dessous",
+    'fr': {
+        'intro': "Vous voulez faire une photo ? Appuyez sur l'icône ci-dessous",
         'intro_print': "Ou sinon\ntu peux toujours\nimprimer\ncette photo",
         'choose': "Choisis ton format",
         '1': "1 photo",
