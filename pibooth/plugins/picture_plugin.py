@@ -105,10 +105,10 @@ class PicturePlugin(object):
         LOGGER.info("Saving raw captures")
         captures = app.camera.get_captures()
 
-        savedir = cfg.gettuple('GENERAL', 'directory', 'path')
+        savedir = cfg.get('GENERAL', 'directory', 'path')
         if not osp.isdir(savedir):
             # Get path of default directory
-            savedir = cfg.gettuple('GENERAL', 'default_directory', 'path')
+            savedir = cfg.get('GENERAL', 'default_directory', 'path')
         rawdir = osp.join(savedir, "raw", app.capture_date)
         os.makedirs(rawdir)
 
@@ -146,10 +146,10 @@ class PicturePlugin(object):
         if app.find_capture_event(events):
 
             LOGGER.info("Moving the picture in the forget folder")
-            savedir = cfg.gettuple('GENERAL', 'directory', 'path')
+            savedir = cfg.get('GENERAL', 'directory')
             if not osp.isdir(savedir):
                 # Get path of default directory
-                savedir = cfg.gettuple('GENERAL', 'default_directory', 'path')
+                savedir = cfg.get('GENERAL', 'default_directory')
 
             forgetdir = osp.join(savedir, "forget")
             if not osp.isdir(forgetdir):
