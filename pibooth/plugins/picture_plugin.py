@@ -109,12 +109,21 @@ class PicturePlugin(object):
         if not osp.isdir(savedir):
             # Get path of default directory
             savedir = cfg.get('GENERAL', 'default_directory')
-        rawdir = osp.join(savedir, "raw", app.capture_date)
-        os.makedirs(rawdir)
+        # rawdir = osp.join(savedir, "raw", app.capture_date)
+        # os.makedirs(rawdir)
 
         for capture in captures:
             count = captures.index(capture)
-            capture.save(osp.join(rawdir, "pibooth{:03}.jpg".format(count)))
+            
+            # Génération de la date et l'heure au format 'YYYYMMDD_HHMMSS'
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Utilisation de la date et l'heure dans le nom de fichier
+            filename = f"pibooth_{timestamp}_{count:03}.jpg"
+
+            # Sauvegarde dans le répertoire spécifié
+            capture.save(osp.join(savedir, filename))
+            # capture.save(osp.join(rawdir, "pibooth_{:03}.jpg".format(count)))
 
         LOGGER.info("Creating the final picture")
         default_factory = get_picture_factory(captures, cfg.get('PICTURE', 'orientation'))
