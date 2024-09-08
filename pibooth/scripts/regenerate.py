@@ -93,8 +93,12 @@ def main():
     picture_plugin.texts_vars['count'] = Counters(config.join_path("counters.pickle"), taken=0, printed=0, forgotten=0,
                                                   remaining_duplicates=config.getint('PRINTER', 'max_duplicates'))
 
-    for path in config.gettuple('GENERAL', 'directory', 'path'):
-        regenerate_all_images(plugin_manager, config, path)
+    path = config.gettuple('GENERAL', 'directory', 'path'):
+    if not osp.isdir(path):
+        # Get path of default directory
+        path = config.gettuple('GENERAL', 'default_directory', 'path')
+    regenerate_all_images(plugin_manager, config, path)
+
 
 
 if __name__ == "__main__":

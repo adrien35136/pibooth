@@ -77,11 +77,14 @@ class PiApplication(object):
         self._config = config
 
         # Create directories where pictures are saved
-        for savedir in config.gettuple('GENERAL', 'directory', 'path'):
-            if osp.isdir(savedir) and config.getboolean('GENERAL', 'debug'):
-                shutil.rmtree(savedir)
-            if not osp.isdir(savedir):
-                os.makedirs(savedir)
+        savedir = config.gettuple('GENERAL', 'directory', 'path')
+        if osp.isdir(savedir) and config.getboolean('GENERAL', 'debug'):
+            shutil.rmtree(savedir)
+        if not osp.isdir(savedir):
+            # Get path of default directory
+            default_savedir = config.gettuple('GENERAL', 'default_directory', 'path')
+            if not osp.isdir(default_savedir):
+                os.makedirs(default_savedir)
 
         # Create window of (width, height)
         init_size = self._config.gettyped('WINDOW', 'size')

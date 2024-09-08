@@ -105,13 +105,16 @@ class PicturePlugin(object):
         LOGGER.info("Saving raw captures")
         captures = app.camera.get_captures()
 
-        for savedir in cfg.gettuple('GENERAL', 'directory', 'path'):
-            rawdir = osp.join(savedir, "raw", app.capture_date)
-            os.makedirs(rawdir)
+        savedir = cfg.gettuple('GENERAL', 'directory', 'path')
+        if not osp.isdir(savedir):
+            # Get path of default directory
+            savedir = cfg.gettuple('GENERAL', 'default_directory', 'path')
+        rawdir = osp.join(savedir, "raw", app.capture_date)
+        os.makedirs(rawdir)
 
-            for capture in captures:
-                count = captures.index(capture)
-                capture.save(osp.join(rawdir, "pibooth{:03}.jpg".format(count)))
+        for capture in captures:
+            count = captures.index(capture)
+            capture.save(osp.join(rawdir, "pibooth{:03}.jpg".format(count)))
 
         LOGGER.info("Creating the final picture")
         default_factory = get_picture_factory(captures, cfg.get('PICTURE', 'orientation'))
@@ -120,9 +123,8 @@ class PicturePlugin(object):
                                                               factory=default_factory)
         app.previous_picture = factory.build()
 
-        for savedir in cfg.gettuple('GENERAL', 'directory', 'path'):
-            app.previous_picture_file = osp.join(savedir, app.picture_filename)
-            factory.save(app.previous_picture_file)
+        app.previous_picture_file = osp.join(savedir, app.picture_filename)
+        factory.save(app.previous_picture_file)
 
         if cfg.getboolean('WINDOW', 'animate') and app.capture_nbr > 1:
             LOGGER.info("Asyncronously generate pictures for animation")
@@ -144,11 +146,15 @@ class PicturePlugin(object):
         if app.find_capture_event(events):
 
             LOGGER.info("Moving the picture in the forget folder")
-            for savedir in cfg.gettuple('GENERAL', 'directory', 'path'):
-                forgetdir = osp.join(savedir, "forget")
-                if not osp.isdir(forgetdir):
-                    os.makedirs(forgetdir)
-                os.rename(osp.join(savedir, app.picture_filename), osp.join(forgetdir, app.picture_filename))
+            savedir = cfg.gettuple('GENERAL', 'directory', 'path')
+            if not osp.isdir(savedir):
+                # Get path of default directory
+                savedir = cfg.gettuple('GENERAL', 'default_directory', 'path')
+
+            forgetdir = osp.join(savedir, "forget")
+            if not osp.isdir(forgetdir):
+                os.makedirs(forgetdir)
+            os.rename(osp.join(savedir, app.picture_filename), osp.join(forgetdir, app.picture_filename))
 
             self._reset_vars(app)
             app.count.forgotten += 1
