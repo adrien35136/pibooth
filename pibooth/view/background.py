@@ -441,7 +441,7 @@ class CaptureBackground(Background):
     def resize(self, screen):
         Background.resize(self, screen)
         if self._need_update:
-            images_height = self._rect.height / 4
+            images_height = self._rect.height / 5
             size = (images_height * 2, images_height)
 
             self.left_people = pictures.get_pygame_image("capture_left.png", size=size,
@@ -453,7 +453,7 @@ class CaptureBackground(Background):
             y = int(self._rect.bottom - images_height)
 
             self.left_people_pos = (0, y)
-            self.right_people_pos = (x + size[0] - 1.5 * self.right_people.get_rect().width, y)
+            self.right_people_pos = (x + size[0] - 2.3 * self.right_people.get_rect().width, y)
 
             if self._show_outlines:
                 self._outlines.append((self._make_outlines(size), (0, y)))
