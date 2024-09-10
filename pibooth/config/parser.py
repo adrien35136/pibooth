@@ -176,6 +176,10 @@ DEFAULT = odict((
                 ((255, 255, 255),
                  "Background RGB color or image path (list of tuples or quoted paths accepted)",
                  None, None)),
+            ("template", 
+                ('pibooth_white_background.xml',
+                 "Pictures template path : it should contain 8 pages (4 capture numbers and 2 orientations)",
+                 "Pictures template path",  ['pibooth_white_background.xml', 'pibooth_champetre_background.xml'])),
         ))
      ),
     ("CAMERA",
