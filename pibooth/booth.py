@@ -78,14 +78,23 @@ class PiApplication(object):
         self._pm = plugin_manager
         self._config = config
 
-        saveDir = self.get_usb_key_mounted_path()
+        pathUsbKeyMounted = self.get_usb_key_mounted_path("PHOTOMATON")
+        LOGGER.info("Path to the USB KEY mounted = %s",pathUsbKeyMounted)
         # Create directories where pictures are saved
         # savedir = config.get('GENERAL', 'directory')
-        if osp.isdir(saveDir):
-            config.set('GENERAL', 'directory', saveDir)
+        if osp.isdir(pathUsbKeyMounted):
+            LOGGER.info(f"USB KEY path is working")
+            currentSaveDirPath = config.get('GENERAL', 'directory')
+            if currentSaveDirPath != pathUsbKeyMounted:
+                LOGGER.info("Save the new path to save the pictures in config file")
+                # Update the path to save the pictures in config file
+                config.set('GENERAL', 'directory', pathUsbKeyMounted)
+                # Save the config file
+                config.save()
         else:
             # Get path of default directory
             default_savedir = config.get('GENERAL', 'default_directory')
+            LOGGER.info("USB KEY path not working, Using default path to save the pictures = %s",default_savedir)
             if not osp.isdir(default_savedir):
                 os.makedirs(default_savedir)
 
@@ -373,12 +382,12 @@ class PiApplication(object):
         return None
     
     
-    def get_usb_key_mounted_path(label):
+    def get_usb_key_mounted_path(self, label):
         timeout = 10  # Limite de temps pour attendre le montage de la clé USB
         elapsed_time = 0
         interval = 1  # Vérifier toutes les secondes
         while elapsed_time < timeout:
-            print (f"elapsed_time == {elapsed_time}")
+            print (f"Time to mount the USB KEY == {elapsed_time}")
             # Parcourir toutes les partitions montées
             for partition in psutil.disk_partitions(all=False):
                 # Vérifier si le chemin de montage contient "/media" (en général, les périphériques externes sont montés ici)
@@ -388,7 +397,7 @@ class PiApplication(object):
                         return partition.mountpoint
             sleep(interval)
             elapsed_time += interval
-        return None
+        return ""
 
     def main_loop(self):
         try:
