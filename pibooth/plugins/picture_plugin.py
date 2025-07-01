@@ -48,7 +48,8 @@ class PicturePlugin(object):
             factory.set_overlay(overlays[opt_index])
 
         texts = [cfg.get('PICTURE', 'footer_text1').strip('"').format(**self.texts_vars),
-                 cfg.get('PICTURE', 'footer_text2').strip('"').format(**self.texts_vars)]
+                 cfg.get('PICTURE', 'footer_text2').strip('"').format(**self.texts_vars),
+                 cfg.get('PICTURE', 'footer_text3').strip('"').format(**self.texts_vars)]
         colors = cfg.gettuple('PICTURE', 'text_colors', 'color', len(texts))
         text_fonts = cfg.gettuple('PICTURE', 'text_fonts', str, len(texts))
         alignments = cfg.gettuple('PICTURE', 'text_alignments', str, len(texts))
