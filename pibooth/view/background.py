@@ -448,6 +448,11 @@ class CaptureBackground(Background):
                                                          color=self._text_color)
             self.right_people = pictures.get_pygame_image("capture_right.png", size=size,
                                                           color=self._text_color)
+            
+            # self.left_arrow = pictures.get_pygame_image("arrow.png", size=size,
+            #                                     color=self._text_color)
+            # self.right_arrow = pictures.get_pygame_image("arrow.png", size=size,
+            #                                     color=self._text_color)
 
             x = int(self._rect.right - size[0])
             y = int(self._rect.bottom - images_height)

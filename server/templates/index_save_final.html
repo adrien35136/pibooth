@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galerie d'Images</title>
+
+    <!-- Lien vers les fichiers CSS de PhotoSwipe depuis un CDN -->
+    <link rel="stylesheet" href="/static/css/photoswipe.css">
+    <link rel="stylesheet" href="/static/css/default-skin.css">
+        <style>
+
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .gallery img {
+            width: 75px;
+            height: 75px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+        #loadMore {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #loadMore:hover {
+            background-color: #0056b3;
+        }
+        .pswp__button--download {
+      
+        background-image: url('/static/css/download.svg') !important;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 24px 24px;
+        width: 44px;
+        height: 44px;
+        opacity: 0.8;
+
+        bottom: 0;
+        cursor: pointer;
+        z-index: 1000;
+    }
+
+        .pswp__button--download:hover {
+            opacity: 1;
+        }
+
+        .custom-on-image-button {
+    position: absolute;
+    top: calc(50% + 280px); /* position approximative sous l’image */
+    left: 50%;
+    pointer-events: auto;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    background-color: rgba(0, 123, 255, 0.9);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 10000;
+    transition: background-color 0.3s;
+}
+
+.custom-on-image-button:hover {
+    background-color: rgba(0, 86, 179, 0.95);
+}
+
+
+    </style>
+</head>
+<body>
+    <h1>Galerie d'Images</h1>
+    <div class="gallery" id="gallery">
+        <!-- Les images seront ajoutées ici par JavaScript -->
+    </div>
+    <button id="loadMore">Charger plus d'images</button>
+
+    <!-- Root element of PhotoSwipe. Must have class pswp. -->
+    <div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+        <!-- Background of PhotoSwipe. It's a separate element as animating opacity is faster than rgba(). -->
+        <div class="pswp__bg"></div>
+        <!-- Slides wrapper with overflow:hidden. -->
+        <div class="pswp__scroll-wrap">
+            <!-- Container that holds slides. PhotoSwipe keeps only 3 of them in the DOM to save memory. -->
+            <div class="pswp__container">
+                <!-- Don't modify these 3 pswp__item elements, data is added later on. -->
+                <div class="pswp__item"></div>
+                <div class="pswp__item"></div>
+                <div class="pswp__item"></div>
+            </div>
+            <button class="custom-on-image-button">💾 Télécharger</button>
+            <!-- Default (PhotoSwipeUI_Default) interface on top of sliding area. Can be changed. -->
+<div class="pswp__ui pswp__ui--hidden">
+    <div class="pswp__top-bar">
+        <div class="pswp__counter"></div>
+        <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+        <button class="pswp__button pswp__button--download" title="Download"></button>
+     
+        <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+        <div class="pswp__preloader">
+            <div class="pswp__preloader__icn">
+                <div class="pswp__preloader__cut">
+                    <div class="pswp__preloader__donut"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)"></button>
+    <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button>
+    <div class="pswp__caption">
+        <div class="pswp__caption__center"></div>
+      
+    </div>
+
+</div>
+
+                
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Lien vers les fichiers JS de PhotoSwipe depuis un CDN -->
+    <script src="/static/js/photoswipe.min.js"></script>
+    <script src="/static/js/photoswipe-ui-default.min.js"></script>
+    <script>
+        let images = [];
+        let displayedImages = 0;
+        const imagesPerLoad = 12;
+
+        fetch('/get_images?t=' + new Date().getTime())
+            .then(response => response.json())
+            .then(fetchedImages => {
+                images = fetchedImages;
+                loadImages();
+            });
+
+        function loadImages() {
+            const gallery = document.getElementById('gallery');
+            const end = Math.min(displayedImages + imagesPerLoad, images.length);
+
+            for (let i = displayedImages; i < end; i++) {
+                const img = document.createElement('img');
+                img.src = images[i].thumb; // miniature
+                img.onclick = function() {
+                    openPhotoSwipe(i);
+                };
+                gallery.appendChild(img);
+            }
+
+            displayedImages = end;
+
+            if (displayedImages >= images.length) {
+                document.getElementById('loadMore').style.display = 'none';
+            }
+        }
+
+        document.getElementById('loadMore').addEventListener('click', loadImages);
+
+
+
+
+
+
+
+        function openPhotoSwipe(index) {
+            const pswpElement = document.querySelectorAll('.pswp')[0];
+
+            // Créez un tableau d'objets d'images pour PhotoSwipe
+            const items = images.slice(0, displayedImages).map((image) => ({
+                src: image.full,
+                w: 1200,
+                h: 900
+            }));            
+
+            const options = {
+                index: index,
+                bgOpacity: 0.7,
+                preload: [0,1],
+                showHideOpacity: true,
+                preloadFirstSlide: true,
+                tapToClose: true,
+                closeOnVerticalDrag: true,
+                getThumbBoundsFn: function(index) {
+                    // See Options -> getThumbBoundsFn section of documentation for more info
+                    const thumbnail = document.querySelectorAll('.gallery img')[index];
+                    const pageYScroll = window.pageYOffset || document.documentElement.scrollTop;
+                    const rect = thumbnail.getBoundingClientRect();
+
+                    return {x: rect.left, y: rect.top + pageYScroll, w: rect.width};
+                },
+                addCaptionHTMLFn: function(item, captionEl) {
+                    if (!item.title) {
+                        captionEl.children[0].textContent = '';
+                        return false;
+                    }
+                    
+                    return true;
+                }
+            };
+
+            const lightBox = new PhotoSwipe(pswpElement, PhotoSwipeUI_Default, items, options);
+        
+            
+            // Ajouter un gestionnaire d'événements pour le bouton de téléchargement
+            lightBox.listen('gettingData', function(index, item) {
+                if (!item.downloadUrl) {
+                    item.downloadUrl = item.src;
+                }
+            });
+
+            lightBox.listen('afterChange', function() {
+                const currItem = lightBox.currItem;
+                const downloadBtn = document.querySelector('.pswp__button--download');
+                downloadBtn.onclick = function() {
+                // Extraire le nom du fichier de l'URL
+                const url = currItem.downloadUrl;
+                const filename = url.substring(url.lastIndexOf('/') + 1);
+
+                const link = document.createElement('a');
+                link.href = currItem.downloadUrl;
+                link.download = filename; // Utiliser le nom du fichier extrait
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+                const downloadBtnCustom = document.querySelector('.custom-on-image-button');
+                downloadBtnCustom.onclick = function() {
+             // Extraire le nom du fichier de l'URL
+                const url = currItem.downloadUrl;
+                const filename = url.substring(url.lastIndexOf('/') + 1);
+
+                const link = document.createElement('a');
+                link.href = currItem.downloadUrl;
+                link.download = filename; // Utiliser le nom du fichier extrait
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                    };
+            });
+
+          
+            lightBox.init();
+        }
+    </script>
+</body>
+</html>
