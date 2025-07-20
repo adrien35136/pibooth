@@ -73,7 +73,7 @@ def generate_qr_png(output_file='qr.png', size=10, wifi_ssid=None, wifi_password
 # Exemples d'utilisation :
 
 # QR code Wi-Fi
-generate_qr_png(output_file="wifi_qr.png", size=7, wifi_ssid="Photobooth", wifi_password="QgdrCIHbSdCK", label_text="1 - WiFi connect")
+generate_qr_png(output_file="wifi_qr.png", size=7, wifi_ssid="Photobooth", wifi_password="2HrU8ILllBxX", label_text="1 - WiFi connect")
 
 # QR code URL
 generate_qr_png(output_file="url_qr.png", size=7, url="http://192.168.4.1:8000", label_text="2 - Galerie photos")

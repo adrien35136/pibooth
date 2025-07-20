@@ -11,16 +11,16 @@ import random
 
 CHECK_INTERVAL = 10               # Seconds
 HOTSPOT_SUBNET = ipaddress.ip_network("192.168.4.0/24")
-MAX_USERS = 6
+MAX_USERS = 8
 LOCK_PATH = "/tmp/hotspot_restart.lock"
 
 # QR dcode define
-WIFI_QR_CODE_PATH = "/home/pi/photo-booth/assets/wifi_qr.png"
-URL_QR_CODE_PATH = "/home/pi/photo-booth/assets/url_qr.png"
-INTRO_IMAGE1_ORIG_PATH = "/home/pi/photo-booth/assets/intro_1_origin.png"
-INTRO_IMAGE2_ORIG_PATH = "/home/pi/photo-booth/assets/intro_2_origin.png"
-OUTPUT_INTRO1_WITH_QR_PATH = "/home/pi/photo-booth/assets/intro_1.png"
-OUTPUT_INTRO2_WITH_QR_PATH = "/home/pi/photo-booth/assets/intro_2.png"
+WIFI_QR_CODE_PATH = "/home/adrien/pibooth/assets/wifi_qr.png"
+URL_QR_CODE_PATH = "/home/adrien/pibooth/assets/url_qr.png"
+INTRO_IMAGE1_ORIG_PATH = "/home/adrien/pibooth/assets/intro_1_origin.png"
+INTRO_IMAGE2_ORIG_PATH = "/home/adrien/pibooth/assets/intro_2_origin.png"
+OUTPUT_INTRO1_WITH_QR_PATH = "/home/adrien/pibooth/assets/intro_1.png"
+OUTPUT_INTRO2_WITH_QR_PATH = "/home/adrien/pibooth/assets/intro_2.png"
 
 # def get_mac_list_from_wlan0():
     # """Retourne la liste des MACs connectées et autorisées (authorized) sur wlan0"""

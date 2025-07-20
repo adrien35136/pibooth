@@ -8,6 +8,7 @@ import pibooth
 from pibooth.utils import LOGGER, PoolingTimer
 from pibooth.pictures import get_picture_factory
 from pibooth.pictures.pool import PicturesFactoryPool
+import time
 
 
 class PicturePlugin(object):
@@ -102,9 +103,12 @@ class PicturePlugin(object):
         idx = app.capture_choices.index(app.capture_nbr)
         self.texts_vars['date'] = datetime.strptime(app.capture_date, "%Y-%m-%d-%H-%M-%S")
         self.texts_vars['count'] = app.count
-
+        
+        start = time.time()
         LOGGER.info("Saving raw captures")
         captures = app.camera.get_captures()
+        print(f"get_captures = {time.time() - start:.2f} seconds")
+        
 
         savedir = cfg.get('GENERAL', 'directory')
         if not osp.isdir(savedir):
@@ -112,8 +116,8 @@ class PicturePlugin(object):
             savedir = cfg.get('GENERAL', 'default_directory')
         photosdir = osp.join(savedir, "photos")
         if not osp.isdir(photosdir):
-            os.makedirs(photosdir)
-
+            os.makedirs(photosdir, exist_ok=True)
+        
         for capture in captures:
             count = captures.index(capture)
             
@@ -122,20 +126,28 @@ class PicturePlugin(object):
 
             # Utilisation de la date et l'heure dans le nom de fichier
             filename = f"pibooth_{timestamp}_{count:03}.jpg"
-
+            
+            start = time.time()
             # Sauvegarde dans le répertoire spécifié
             capture.save(osp.join(savedir, "photos", filename))
             # capture.save(osp.join(rawdir, "pibooth_{:03}.jpg".format(count)))
-
+            print(f"save = {time.time() - start:.2f} seconds")
+        
+        start = time.time()
         LOGGER.info("Creating the final picture")
         default_factory = get_picture_factory(captures, cfg.get('PICTURE', 'orientation'))
         factory = self._pm.hook.pibooth_setup_picture_factory(cfg=cfg,
                                                               opt_index=idx,
                                                               factory=default_factory)
+        print(f"get_picture_factory = {time.time() - start:.2f} seconds")
+        start = time.time()
         app.previous_picture = factory.build()
-
+        print(f"factory.build()= {time.time() - start:.2f} seconds")
+        
+        start = time.time()
         app.previous_picture_file = osp.join(savedir, "photos", app.picture_filename)
         factory.save(app.previous_picture_file)
+        print(f"factory.save= {time.time() - start:.2f} seconds")
 
         if cfg.getboolean('WINDOW', 'animate') and app.capture_nbr > 1:
             LOGGER.info("Asyncronously generate pictures for animation")

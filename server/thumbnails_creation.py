@@ -6,16 +6,17 @@ import shutil
 import psutil
 from time import sleep
 
-UPLOAD_FOLDER = '/media/pi/PHOTOMATON/photos'
-DEFAULT_PICTURES_PATH = "/home/pi/photo-booth/photos"
+UPLOAD_FOLDER = '/media/adrien/PHOTOMATON/photos'
+DEFAULT_PICTURES_PATH = "/home/adrien/Images/photos_pibooth/photos"
 CHECK_INTERVAL = 5  # secondes
-THUMBNAILS_FOLDER = "/home/pi/photo-booth/server/static/thumbnails"
+THUMBNAILS_FOLDER = "/home/adrien/Documents/pibooth/server/static/thumbnails"
 
-def monitor_upload_folder():
+def monitor_upload_folder(path_to_save_pictures):
+#def monitor_upload_folder():
     while True:
         try:
             i = inotify.adapters.Inotify()
-            i.add_watch(UPLOAD_FOLDER)
+            i.add_watch(path_to_save_pictures)
             print("Monitoring folder...")
             for event in i.event_gen(yield_nones=False):
                 (_, type_names, path, filename) = event
@@ -31,7 +32,7 @@ def monitor_upload_folder():
             time.sleep(CHECK_INTERVAL)  # éviter boucle trop rapide en cas d’erreur
 
 def get_usb_key_mounted_path(label):
-    timeout = 10  # Limite de temps pour attendre le montage de la clé USB
+    timeout = 120  # Limite de temps pour attendre le montage de la clé USB
     elapsed_time = 0
     interval = 1  # Vérifier toutes les secondes
     while elapsed_time < timeout:
@@ -66,19 +67,17 @@ def reset_thumbnails_folder():
         print(f"Erreur lors de la création : {e}")
 
 if __name__ == '__main__':
-
-    # Clean thumbnails folder
-    #reset_thumbnails_folder()
-    
-    # # Check if the USB key with the label "PHOTOMATON" is mounted
-    # path_usb_key_mounted = get_usb_key_mounted_path("PHOTOMATON")
+   
+    # Check if the USB key with the label "PHOTOMATON" is mounted
+    path_usb_key_mounted = get_usb_key_mounted_path("PHOTOMATON")
         
-    # if os.path.exists(path_usb_key_mounted):
-        # path_to_save_pictures = path_usb_key_mounted + '/photos'
-    # else:
-        # path_to_save_pictures = DEFAULT_PICTURES_PATH
+    if os.path.exists(path_usb_key_mounted):
+        path_to_save_pictures = path_usb_key_mounted + '/photos'
+    else:
+        path_to_save_pictures = DEFAULT_PICTURES_PATH
     
-    # print (path_to_save_pictures)
+    print (path_to_save_pictures)
 
-    monitor_upload_folder()
+    monitor_upload_folder(path_to_save_pictures)
+    #monitor_upload_folder()
 

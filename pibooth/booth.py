@@ -94,6 +94,10 @@ class PiApplication(object):
         else:
             # Get path of default directory
             default_savedir = config.get('GENERAL', 'default_directory')
+            # Update the path to save the pictures in config file
+            config.set('GENERAL', 'directory', default_savedir)
+            # Save the config file
+            config.save()
             LOGGER.info("USB KEY path not working, Using default path to save the pictures = %s",default_savedir)
             if not osp.isdir(default_savedir):
                 os.makedirs(default_savedir)

@@ -1,7 +1,7 @@
 from PIL import Image
 import os
 current_directory = os.getcwd()
-DESTINATION_PATH = "/home/pi/photo-booth/server/static/thumbnails"
+DESTINATION_PATH = "/home/adrien/Documents/pibooth/server/static/thumbnails"
 
 def generate_thumbnail(filename, size=(200, 200)):
 
