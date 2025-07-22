@@ -102,7 +102,7 @@ class PicturePlugin(object):
         idx = app.capture_choices.index(app.capture_nbr)
         self.texts_vars['date'] = datetime.strptime(app.capture_date, "%Y-%m-%d-%H-%M-%S")
         self.texts_vars['count'] = app.count
-
+        
         LOGGER.info("Saving raw captures")
         captures = app.camera.get_captures()
 
@@ -113,19 +113,17 @@ class PicturePlugin(object):
         photosdir = osp.join(savedir, "photos")
         if not osp.isdir(photosdir):
             os.makedirs(photosdir)
-
+        
+        # Génération de la date et l'heure au format 'YYYYMMDD_HHMMSS'
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         for capture in captures:
             count = captures.index(capture)
             
-            # Génération de la date et l'heure au format 'YYYYMMDD_HHMMSS'
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
             # Utilisation de la date et l'heure dans le nom de fichier
             filename = f"pibooth_{timestamp}_{count:03}.jpg"
 
             # Sauvegarde dans le répertoire spécifié
             capture.save(osp.join(savedir, "photos", filename))
-            # capture.save(osp.join(rawdir, "pibooth_{:03}.jpg".format(count)))
 
         LOGGER.info("Creating the final picture")
         default_factory = get_picture_factory(captures, cfg.get('PICTURE', 'orientation'))
