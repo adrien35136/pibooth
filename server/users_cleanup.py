@@ -15,31 +15,7 @@ MAX_USERS = 8
 LOCK_PATH = "/tmp/hotspot_restart.lock"
 
 # QR dcode define
-WIFI_QR_CODE_PATH = "/home/adrien/pibooth/assets/wifi_qr.png"
-URL_QR_CODE_PATH = "/home/adrien/pibooth/assets/url_qr.png"
-INTRO_IMAGE1_ORIG_PATH = "/home/adrien/pibooth/assets/intro_1_origin.png"
-INTRO_IMAGE2_ORIG_PATH = "/home/adrien/pibooth/assets/intro_2_origin.png"
-OUTPUT_INTRO1_WITH_QR_PATH = "/home/adrien/pibooth/assets/intro_1.png"
-OUTPUT_INTRO2_WITH_QR_PATH = "/home/adrien/pibooth/assets/intro_2.png"
-
-# def get_mac_list_from_wlan0():
-    # """Retourne la liste des MACs connectées et autorisées (authorized) sur wlan0"""
-    # try:
-        # result = subprocess.check_output(["iw", "dev", "wlan1", "station", "dump"]).decode()
-        # macs = []
-        # current_mac = None
-
-        # for line in result.splitlines():
-            # line = line.strip()
-            # if line.startswith("Station"):
-                # current_mac = line.split()[1]
-            # elif current_mac and line.startswith("authorized:") and "yes" in line: # l'utilisateur a le bon mot de passe
-                    # macs.append(current_mac)
-                    # current_mac = None  # pour éviter les doublons accidentels
-        # return macs
-    # except Exception as e:
-        # print(f"[ERROR] Failed to get MAC list from wlan1: {e}")
-        # return []
+WIFI_QR_CODE_PATH = "/home/adrien/Documents/pibooth/assets/wifi_qr.png"
 
 def get_mac_list_from_wlan1():
     """
@@ -103,22 +79,7 @@ def change_wifi_password(new_password, config_file="/etc/hostapd/hostapd.conf"):
         print(f"[ERROR] Erreur de commande système : {e}")
     except Exception as e:
         print(f"[ERROR] Problème lors du changement de mot de passe Wi-Fi : {e}")
-     
-def overlay_intro_with_qr(intro_img_path, wifi_qr_code_path, url_qr_code_path, output_path):
-    """
-    Combine l'image d'intro et les QRs code, sauvegarde dans output_path.
-    """
-    intro_img = Image.open(intro_img_path).convert("RGBA")
-    wifi_qr_code_img = Image.open(wifi_qr_code_path).convert("RGBA")
-    url_qr_code_img = Image.open(url_qr_code_path).convert("RGBA")
-
-    position_wifi_qr_code = (180, 100)
-    position_url_qr_code = (500, 100)
-
-    intro_img.paste(wifi_qr_code_img, position_wifi_qr_code, wifi_qr_code_img)  # Le 3e argument garde la transparence
-    intro_img.paste(url_qr_code_img, position_url_qr_code, url_qr_code_img)  # Le 3e argument garde la transparence
-
-    intro_img.save(output_path)
+    
 
 def generate_qr_png(output_file='qr.png', size=7, wifi_ssid=None, wifi_password=None, url=None, label_text="WiFi"):
     """
@@ -205,8 +166,6 @@ def main():
                     continue
 
                 generate_qr_png(output_file=WIFI_QR_CODE_PATH, wifi_ssid="Photobooth", wifi_password=new_password, label_text="1 - WiFi connect")
-                overlay_intro_with_qr(INTRO_IMAGE1_ORIG_PATH, WIFI_QR_CODE_PATH, URL_QR_CODE_PATH, OUTPUT_INTRO1_WITH_QR_PATH)
-                overlay_intro_with_qr(INTRO_IMAGE2_ORIG_PATH, WIFI_QR_CODE_PATH, URL_QR_CODE_PATH, OUTPUT_INTRO2_WITH_QR_PATH)
                 
                 print("[INFO] Pause de sécurité après changement de mot de passe pour laisser le temps à hotsapt de bien redémarrer")
                 time.sleep(30)  # Pause spéciale après MAJ, ne pas retirer
