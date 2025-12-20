@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import time
+import pygame
 import numpy as np
 from io import BytesIO
 from PIL import Image, ImageOps
@@ -73,6 +74,9 @@ class RpiCamera(BaseCamera):
         # Store original transform for later modifications
         self._transform = Transform(hflip=self.capture_flip, vflip=False)
         self._preview_started = False
+        self._preview_surface = None
+        self._last_preview_time = 0
+        self._preview_fps = 15  # Target FPS for preview
 
     def _show_overlay(self, text, alpha):
         """Add an image as an overlay using Pygame (Picamera2 doesn't have native overlays).
@@ -126,11 +130,7 @@ class RpiCamera(BaseCamera):
         # Add more effects as needed
         # For unsupported effects, return original image
         return image
-
-    def preview(self, window, flip=True):
-        """Display a preview using Picamera2.
-        Note: Picamera2 doesn't support windowed preview natively.
-        We start the camera in streaming mode and let Pibooth handle the display.
+Captures frames and displays them in Pygame window.
         """
         if self._preview_started:
             # Already running
@@ -138,6 +138,95 @@ class RpiCamera(BaseCamera):
 
         self._window = window
         
+        # Start the camera (streaming mode)
+        self._cam.start()
+        self._preview_started = True
+        
+        # Display initial preview frame
+        self._update_preview()
+    
+    def _update_preview(self):
+        """Update the preview by capturing and displaying a frame."""
+        if not self._preview_started or not self._window:
+            return
+        Displays live preview with countdown overlay.
+        """
+        timeout = int(timeout)
+        if timeout < 1:
+            raise ValueError("Start time shall be greater than 0")
+        if not self._preview_started:
+            raise EnvironmentError("Preview shall be started first")
+
+        while timeout > 0:
+            self._show_overlay(timeout, alpha)
+            
+            # Update preview with countdown
+            start_time = time.time()
+            while time.time() - start_time < 1.0:
+                self._update_preview()
+                time.sleep(0.033)  # ~30 FPS
+            
+            timeout -= 1
+            self._hide_overlay()
+            
+            # Enable flash bef while showing live preview.
+        """
+        self._show_overlay(get_translated_text('smile'), alpha)
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            self._update_preview()
+            time.sleep(0.033)  # ~30 FPS
+        self._show_overlay(get_translated_text('smile'), alpha)
+        # Show "smile" for a brief moment with live preview
+        for _ in range(10):
+            self._update_preview()
+            time.sleep(0.033
+            image = image.resize((rect.width, rect.height), Image.LANCZOS)
+            
+            # Convert PIL Image to Pygame surface
+            mode = image.mode
+            size = image.size
+            data = image.tobytes()
+            
+            self._preview_surface = pygame.image.fromstring(data, size, mode)
+            
+            # Draw on window
+            surface = self._window.get_surface()
+            surface.fill((0, 0, 0))  # Clear background
+            surface.blit(self._preview_surface, (rect.x, rect.y))
+            
+            # Draw overlay if present
+            if self._overlay:
+                self._draw_overlay_on_surface(surface, rect)
+            
+            pygame.display.flip()
+            
+        except Exception as e:
+            # Silently ignore preview errors to not block the application
+            pass
+    
+    def _draw_overlay_on_surface(self, surface, rect):
+        """Draw overlay text on pygame surface."""
+        if not self._overlay:
+            return
+        
+        text = str(self._overlay.get('text', ''))
+        alpha = self._overlay.get('alpha', 255)
+        
+        # Create overlay surface
+        overlay_surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        
+        # Render text
+        font_size = min(rect.width, rect.height) // 3
+        font = pygame.font.Font(None, font_size)
+        text_surf = font.render(text, True, (255, 255, 255, alpha))
+        
+        # Center text
+        text_rect = text_surf.get_rect(center=(rect.width // 2, rect.height // 2))
+        overlay_surf.blit(text_surf, text_rect)
+        
+        # Draw on main surface
+        surface.blit(overlay_surf, (rect.x, rect.y))
         # Start the camera (streaming mode without native preview window)
         self._cam.start()
         self._preview_started = True
