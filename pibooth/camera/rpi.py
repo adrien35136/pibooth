@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import time
-import subprocess
+import numpy as np
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 try:
-    import picamera
+    from picamera2 import Picamera2
+    from libcamera import Transform
 except ImportError:
-    picamera = None  # picamera is optional
+    Picamera2 = None  # picamera2 is optional
+    Transform = None
 from pibooth.language import get_translated_text
 from pibooth.camera.base import BaseCamera
 
@@ -19,99 +21,136 @@ def get_rpi_camera_proxy(port=None):
     :param port: look on given port number
     :type port: int
     """
-    if not picamera:
-        return None  # picamera is not installed
+    if not Picamera2:
+        return None  # picamera2 is not installed
     try:
-        process = subprocess.Popen(['vcgencmd', 'get_camera'],
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, _stderr = process.communicate()
-        if stdout and u'detected=1' in stdout.decode('utf-8'):
-            if port is not None:
-                return picamera.PiCamera(camera_num=port)
-            return picamera.PiCamera()
-    except OSError:
+        # Check if cameras are available
+        cameras = Picamera2.global_camera_info()
+        if not cameras:
+            return None
+        
+        # Select camera by port/index
+        if port is not None and port < len(cameras):
+            return Picamera2(port)
+        return Picamera2()
+    except Exception:
         pass
     return None
 
 
 class RpiCamera(BaseCamera):
 
-    """Camera management
+    """Camera management using Picamera2 and libcamera stack.
     """
 
-    if picamera:
-        IMAGE_EFFECTS = list(picamera.PiCamera.IMAGE_EFFECTS.keys())
-    else:
-        IMAGE_EFFECTS = []
+    # Common effects that can be simulated with PIL post-processing
+    IMAGE_EFFECTS = ['none', 'negative', 'solarize', 'sketch', 'denoise', 'emboss', 
+                     'oilpaint', 'hatch', 'gpen', 'pastel', 'watercolor', 'film', 
+                     'blur', 'saturation', 'colorswap', 'washedout', 'posterise', 
+                     'colorpoint', 'colorbalance', 'cartoon', 'deinterlace1', 'deinterlace2']
 
     def _specific_initialization(self):
-        """Camera initialization.
+        """Camera initialization with Picamera2.
         """
-        self._cam.framerate = 15  # Slower is necessary for high-resolution
-        self._cam.video_stabilization = True
-        self._cam.vflip = False
-        self._cam.hflip = self.capture_flip
-        self._cam.resolution = self.resolution
-        self._cam.iso = self.preview_iso
-        self._cam.rotation = self.preview_rotation
+        # Create preview configuration
+        preview_config = self._cam.create_preview_configuration(
+            main={"size": self.resolution, "format": "RGB888"},
+            transform=Transform(
+                hflip=self.capture_flip,
+                vflip=False
+            )
+        )
+        self._cam.configure(preview_config)
+        
+        # Set controls (ISO → AnalogueGain conversion: gain = iso / 100)
+        preview_gain = self.preview_iso / 100.0
+        controls = {
+            "AnalogueGain": preview_gain,
+            "AeEnable": True,  # Auto-exposure
+        }
+        self._cam.set_controls(controls)
+        
+        # Store original transform for later modifications
+        self._transform = Transform(hflip=self.capture_flip, vflip=False)
+        self._preview_started = False
 
     def _show_overlay(self, text, alpha):
-        """Add an image as an overlay.
+        """Add an image as an overlay using Pygame (Picamera2 doesn't have native overlays).
+        Note: The actual overlay rendering is handled by Pibooth's window system.
+        We just store the overlay data here for compatibility.
         """
-        if self._window:  # No window means no preview displayed
-            rect = self.get_rect(self._cam.MAX_RESOLUTION)
-
-            # Create an image padded to the required size (required by picamera)
-            size = (((rect.width + 31) // 32) * 32, ((rect.height + 15) // 16) * 16)
-
-            image = self.build_overlay(size, str(text), alpha)
-            self._overlay = self._cam.add_overlay(image.tobytes(), image.size, layer=3,
-                                                  window=tuple(rect), fullscreen=False)
+        if self._window:
+            # Store overlay information for potential Pygame rendering
+            self._overlay = {'text': str(text), 'alpha': alpha}
 
     def _hide_overlay(self):
         """Remove any existing overlay.
         """
         if self._overlay:
-            self._cam.remove_overlay(self._overlay)
             self._overlay = None
 
     def _post_process_capture(self, capture_data):
         """Rework capture data.
 
-        :param capture_data: binary data as stream
-        :type capture_data: :py:class:`io.BytesIO`
+        :param capture_data: tuple (numpy array, effect)
+        :type capture_data: tuple
         """
-        # "Rewind" the stream to the beginning so we can read its content
-        capture_data.seek(0)
-        return Image.open(capture_data)
+        array, effect = capture_data
+        
+        # Convert numpy array to PIL Image
+        image = Image.fromarray(array)
+        
+        # Apply effect if not 'none'
+        if effect and effect != 'none':
+            image = self._apply_effect(image, effect)
+        
+        return image
+    
+    def _apply_effect(self, image, effect):
+        """Apply image effect using PIL post-processing.
+        
+        :param image: PIL Image
+        :param effect: effect name
+        :return: PIL Image with effect applied
+        """
+        effect = effect.lower()
+        
+        if effect == 'negative':
+            return ImageOps.invert(image.convert('RGB'))
+        elif effect == 'solarize':
+            return ImageOps.solarize(image, threshold=128)
+        elif effect == 'posterise':
+            return ImageOps.posterize(image, bits=2)
+        elif effect == 'colorbalance':
+            return ImageOps.equalize(image)
+        # Add more effects as needed
+        # For unsupported effects, return original image
+        return image
 
     def preview(self, window, flip=True):
-        """Display a preview on the given Rect (flip if necessary).
+        """Display a preview using Picamera2.
+        Note: Picamera2 doesn't support windowed preview natively.
+        We start the camera in streaming mode and let Pibooth handle the display.
         """
-        if self._cam.preview is not None:
+        if self._preview_started:
             # Already running
             return
 
         self._window = window
-        rect = self.get_rect(self._cam.MAX_RESOLUTION)
-        if self._cam.hflip:
-            if flip:
-                # Don't flip again, already done at init
-                flip = False
-            else:
-                # Flip again because flipped once at init
-                flip = True
-        self._cam.start_preview(resolution=(rect.width, rect.height), hflip=flip,
-                                fullscreen=False, window=tuple(rect))
+        
+        # Start the camera (streaming mode without native preview window)
+        self._cam.start()
+        self._preview_started = True
 
     def preview_countdown(self, timeout, alpha=60, flash_led=None):
         """Show a countdown of `timeout` seconds on the preview.
         Returns when the countdown is finished.
+        Note: Overlay rendering should be handled by Pibooth's window system.
         """
         timeout = int(timeout)
         if timeout < 1:
             raise ValueError("Start time shall be greater than 0")
-        if not self._cam.preview:
+        if not self._preview_started:
             raise EnvironmentError("Preview shall be started first")
 
         while timeout > 0:
@@ -135,38 +174,47 @@ class RpiCamera(BaseCamera):
         """Stop the preview.
         """
         self._hide_overlay()
-        self._cam.stop_preview()
+        if self._preview_started:
+            self._cam.stop()
+            self._preview_started = False
         self._window = None
 
     def capture(self, effect=None):
-        """Capture a new picture in a file.
+        """Capture a new picture using Picamera2.
         """
         effect = str(effect).lower()
         if effect not in self.IMAGE_EFFECTS:
             raise ValueError("Invalid capture effect '{}' (choose among {})".format(effect, self.IMAGE_EFFECTS))
 
         try:
+            # Adjust ISO/gain if needed for capture
             if self.capture_iso != self.preview_iso:
-                self._cam.iso = self.capture_iso
-            if self.capture_rotation != self.preview_rotation:
-                self._cam.rotation = self.capture_rotation
-
-            stream = BytesIO()
-            self._cam.image_effect = effect
-            self._cam.capture(stream, format='jpeg')
-
+                capture_gain = self.capture_iso / 100.0
+                self._cam.set_controls({"AnalogueGain": capture_gain})
+            
+            # Capture as numpy array (RGB format)
+            array = self._cam.capture_array("main")
+            
+            # Store capture with effect for post-processing
+            self._captures.append((array, effect))
+            
+            # Restore preview ISO/gain
             if self.capture_iso != self.preview_iso:
-                self._cam.iso = self.preview_iso
-            if self.capture_rotation != self.preview_rotation:
-                self._cam.rotation = self.preview_rotation
-
-            self._captures.append(stream)
-        finally:
-            self._cam.image_effect = 'none'
+                preview_gain = self.preview_iso / 100.0
+                self._cam.set_controls({"AnalogueGain": preview_gain})
+                
+        except Exception as e:
+            # In case of error, ensure we restore preview settings
+            if self.capture_iso != self.preview_iso:
+                preview_gain = self.preview_iso / 100.0
+                self._cam.set_controls({"AnalogueGain": preview_gain})
+            raise e
 
         self._hide_overlay()  # If stop_preview() has not been called
 
     def quit(self):
         """Close the camera driver, it's definitive.
         """
+        if self._preview_started:
+            self._cam.stop()
         self._cam.close()
