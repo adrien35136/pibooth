@@ -116,20 +116,27 @@ class RpiCamera(BaseCamera):
         return image
     
     def _show_overlay(self, text, alpha):
-        """Show overlay using cache if available for countdown numbers.
+        """Show overlay using cache if available, create cache on first call.
         """
         if self._window:
             text_str = str(text)
-            # Try to use cached overlay for countdown numbers
-            if hasattr(self, '_overlay_cache') and text_str.isdigit():
-                num = int(text_str)
-                if num in self._overlay_cache:
-                    self._overlay = self._overlay_cache[num]
-                    return
-            
-            # Fallback: create overlay on-the-fly for non-cached text
             rect = self.get_rect()
-            self._overlay = self._create_overlay_image(rect.size, text_str, alpha)
+            
+            # Create cache on first call with the configured alpha
+            if not self._overlay_cache:
+                for num in range(1, 6):
+                    self._overlay_cache[num] = self._create_overlay_image(rect.size, str(num), alpha)
+                smile_text = get_translated_text('smile')
+                self._overlay_cache['smile'] = self._create_overlay_image(rect.size, smile_text, alpha)
+            
+            # Use cached overlay if available
+            if text_str.isdigit() and int(text_str) in self._overlay_cache:
+                self._overlay = self._overlay_cache[int(text_str)]
+            elif text_str == get_translated_text('smile') and 'smile' in self._overlay_cache:
+                self._overlay = self._overlay_cache['smile']
+            else:
+                # Fallback: create overlay on-the-fly
+                self._overlay = self._create_overlay_image(rect.size, text_str, alpha)
 
     def _hide_overlay(self):
         """Remove any existing overlay.
@@ -185,12 +192,6 @@ class RpiCamera(BaseCamera):
         self._transform = Transform(hflip=flip, vflip=False)
         self._preview_config["transform"] = self._transform
         self._cam.configure(self._preview_config)
-        
-        # Pre-create countdown overlays (1-5) to avoid slow font loading during countdown
-        self._overlay_cache = {}
-        rect = self.get_rect()
-        for num in range(1, 6):
-            self._overlay_cache[num] = self._create_overlay_image(rect.size, str(num), 60)
         
         # Start the camera (streaming mode)
         if not self._preview_started:
