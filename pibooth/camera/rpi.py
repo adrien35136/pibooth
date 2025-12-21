@@ -168,15 +168,45 @@ class RpiCamera(BaseCamera):
         
         try:
             # Use LORES stream for preview (YUV420 format)
-            array = self._cam.capture_array("lores")
+            yuv_array = self._cam.capture_array("lores")
             
-            # Convert YUV420 to RGB using PIL
-            # YUV420 has shape (height*1.5, width) with Y plane + UV plane
-            h, w = array.shape[0] * 2 // 3, array.shape[1]
+            # YUV420 format: array has shape (height * 1.5, width)
+            # First 2/3 is Y plane, last 1/3 is interleaved UV
+            h = (yuv_array.shape[0] * 2) // 3
+            w = yuv_array.shape[1]
             
-            # Use PIL to convert YUV to RGB
-            yuv_image = Image.frombytes('YCbCr', (w, h), array[:h].tobytes(), 'raw', 'YUV420')
-            image = yuv_image.convert('RGB')
+            # Extract Y, U, V planes
+            y_plane = yuv_array[:h, :]
+            uv_plane = yuv_array[h:, :]
+            
+            # Reshape to proper YUV420 structure
+            y = y_plane.reshape((h, w))
+            u = uv_plane[::2, :].reshape((h//2, w//2))
+            v = uv_plane[1::2, :].reshape((h//2, w//2))
+            
+            # Upsample U and V to match Y size
+            u_upsampled = np.repeat(np.repeat(u, 2, axis=0), 2, axis=1)
+            v_upsampled = np.repeat(np.repeat(v, 2, axis=0), 2, axis=1)
+            
+            # Convert YUV to RGB using numpy
+            # Standard YUV to RGB conversion matrix
+            y = y.astype(np.float32)
+            u = u_upsampled.astype(np.float32) - 128
+            v = v_upsampled.astype(np.float32) - 128
+            
+            r = y + 1.402 * v
+            g = y - 0.344136 * u - 0.714136 * v
+            b = y + 1.772 * u
+            
+            # Clip values to 0-255 and stack to RGB
+            rgb = np.stack([
+                np.clip(r, 0, 255).astype(np.uint8),
+                np.clip(g, 0, 255).astype(np.uint8),
+                np.clip(b, 0, 255).astype(np.uint8)
+            ], axis=-1)
+            
+            # Convert to PIL Image
+            image = Image.fromarray(rgb, 'RGB')
             
             # Get the preview rectangle from Pibooth to know target size
             rect = self.get_rect()
