@@ -102,10 +102,9 @@ class RpiCamera(BaseCamera):
         image = Image.new('RGBA', size)
         draw = ImageDraw.Draw(image)
         
-        # Use smaller font size (similar to annotate_text_size=80)
-        # Old Picamera used about 1/15 of screen height
+        # Doubled font size (2x the original annotate_text_size)
         font = fonts.get_pil_font(str(text), fonts.CURRENT, 
-                                 size[0] * 0.3, size[1] * 0.15)
+                                 size[0] * 0.6, size[1] * 0.3)
         bbox = font.getbbox(str(text))
         txt_width = bbox[2] - bbox[0]
         txt_height = bbox[3] - bbox[1]
