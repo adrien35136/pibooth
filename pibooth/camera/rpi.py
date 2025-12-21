@@ -77,6 +77,7 @@ class RpiCamera(BaseCamera):
         controls = {
             "AnalogueGain": preview_gain,
             "AeEnable": True,  # Auto-exposure
+            "AwbEnable": True,  # Auto white balance
         }
         self._cam.set_controls(controls)
 
