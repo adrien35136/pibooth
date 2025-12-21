@@ -224,14 +224,16 @@ class RpiCamera(BaseCamera):
             raise EnvironmentError("Preview shall be started first")
 
         while timeout > 0:
+            # Create overlay only once per second (not every frame)
             self._show_overlay(timeout, alpha)
+            overlay_image = self._overlay
             
             # Update preview with countdown (show multiple frames during 1 second)
             start_time = time.time()
             while time.time() - start_time < 1.0:
                 updated_rect = self._window.show_image(self._get_preview_image())
-                if self._overlay:
-                    self._window.show_image(self._overlay)
+                if overlay_image:
+                    self._window.show_image(overlay_image)
                 pygame.event.pump()
                 if updated_rect:
                     pygame.display.update(updated_rect)
@@ -243,12 +245,14 @@ class RpiCamera(BaseCamera):
             if timeout == 1:
                 flash_led.on()
 
+        # Create smile overlay once, reuse for all frames
         self._show_overlay(get_translated_text('smile'), alpha)
+        smile_overlay = self._overlay
         # Show smile with live preview (reduced iterations for faster response)
         for _ in range(3):
             updated_rect = self._window.show_image(self._get_preview_image())
-            if self._overlay:
-                self._window.show_image(self._overlay)
+            if smile_overlay:
+                self._window.show_image(smile_overlay)
             pygame.event.pump()
             if updated_rect:
                 pygame.display.update(updated_rect)
