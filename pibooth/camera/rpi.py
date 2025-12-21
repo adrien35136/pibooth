@@ -171,39 +171,23 @@ class RpiCamera(BaseCamera):
             return None
         
         try:
-            # Use LORES stream for preview (640x480 YUV420 - much faster!)
-            yuv_array = self._cam.capture_array("lores")
-            
-            # Convert YUV420 to RGB using numpy
-            # YUV420 format: Y plane (full res) + U plane (1/4 res) + V plane (1/4 res)
-            h, w = 480, 640
-            y = yuv_array[:h, :].reshape((h, w))
-            u = yuv_array[h:h+h//4, :].reshape((h//2, w//2))
-            v = yuv_array[h+h//4:, :].reshape((h//2, w//2))
-            
-            # Upsample U and V to full resolution
-            import numpy as np
-            u_full = np.repeat(np.repeat(u, 2, axis=0), 2, axis=1)
-            v_full = np.repeat(np.repeat(v, 2, axis=0), 2, axis=1)
-            
-            # YUV to RGB conversion matrix
-            rgb = np.zeros((h, w, 3), dtype=np.uint8)
-            rgb[:, :, 0] = np.clip(y + 1.402 * (v_full - 128), 0, 255)  # R
-            rgb[:, :, 1] = np.clip(y - 0.344 * (u_full - 128) - 0.714 * (v_full - 128), 0, 255)  # G
-            rgb[:, :, 2] = np.clip(y + 1.772 * (u_full - 128), 0, 255)  # B
-            
-            # Convert to PIL Image
-            image = Image.fromarray(rgb)
-            
-            # Get the preview rectangle from Pibooth to know target size
-            rect = self.get_rect()
-            
-            # Resize to fit preview area while keeping aspect ratio
-            from pibooth.pictures import sizing
-            new_size = sizing.new_size_keep_aspect_ratio(image.size, (rect.width, rect.height))
-            image = image.resize(new_size, Image.LANCZOS)
-            
-            return image
+            # Capture from lores and let Picamera2 convert YUV to RGB automatically
+            request = self._cam.capture_request()
+            try:
+                # Get RGB array from lores stream with automatic YUV->RGB conversion
+                image = request.make_image("lores")
+                
+                # Get the preview rectangle from Pibooth to know target size
+                rect = self.get_rect()
+                
+                # Resize to fit preview area while keeping aspect ratio
+                from pibooth.pictures import sizing
+                new_size = sizing.new_size_keep_aspect_ratio(image.size, (rect.width, rect.height))
+                image = image.resize(new_size, Image.LANCZOS)
+                
+                return image
+            finally:
+                request.release()
             
         except Exception as e:
             LOGGER.warning(f"Preview capture error: {e}")
