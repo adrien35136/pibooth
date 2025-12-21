@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import time
+import threading
 import pygame
 import numpy as np
 from io import BytesIO
@@ -77,6 +78,8 @@ class RpiCamera(BaseCamera):
         self._preview_surface = None
         self._last_preview_time = 0
         self._preview_fps = 15  # Target FPS for preview
+        self._preview_thread = None
+        self._preview_running = False
 
     def _show_overlay(self, text, alpha):
         """Add an image as an overlay using Pygame (Picamera2 doesn't have native overlays).
@@ -145,19 +148,25 @@ class RpiCamera(BaseCamera):
         self._cam.start()
         self._preview_started = True
         
-        # Display initial preview frame
-        self._update_preview()
+        # Start preview thread for continuous frame updates
+        self._preview_running = True
+        self._preview_thread = threading.Thread(target=self._preview_loop, daemon=True)
+        self._preview_thread.start()
+    
+    def _preview_loop(self):
+        """Thread loop that continuously updates the preview."""
+        while self._preview_running:
+            try:
+                self._update_preview()
+                time.sleep(1.0 / self._preview_fps)  # Throttle to target FPS
+            except Exception:
+                # Silently ignore errors to keep thread running
+                time.sleep(0.1)
     
     def _update_preview(self):
         """Update the preview by capturing and displaying a frame."""
         if not self._preview_started or not self._window:
             return
-        
-        # Throttle preview updates to target FPS
-        current_time = time.time()
-        if current_time - self._last_preview_time < 1.0 / self._preview_fps:
-            return
-        self._last_preview_time = current_time
         
         try:
             # Capture preview frame
@@ -263,6 +272,13 @@ class RpiCamera(BaseCamera):
         """Stop the preview.
         """
         self._hide_overlay()
+        
+        # Stop preview thread
+        if self._preview_running:
+            self._preview_running = False
+            if self._preview_thread and self._preview_thread.is_alive():
+                self._preview_thread.join(timeout=1.0)
+        
         if self._preview_started:
             self._cam.stop()
             self._preview_started = False
