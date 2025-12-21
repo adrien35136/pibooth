@@ -11,6 +11,7 @@ try:
 except ImportError:
     Picamera2 = None  # picamera2 is optional
     Transform = None
+from pibooth.utils import LOGGER
 from pibooth.language import get_translated_text
 from pibooth.camera.base import BaseCamera
 
