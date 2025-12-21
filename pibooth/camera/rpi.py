@@ -63,10 +63,12 @@ class RpiCamera(BaseCamera):
         self._preview_started = False
         
         # Create configuration with dual streams:
-        # - main: high-resolution RGB for capture
+        # - main: medium resolution RGB for fast preview and good capture quality
         # - lores: low-resolution YUV420 for fast preview (required by Picamera2)
+        # Using 1640x1232 (half of 3280x2464) for better performance
+        preview_resolution = (1640, 1232)
         self._preview_config = self._cam.create_video_configuration(
-            main={"size": self.resolution, "format": "RGB888"},
+            main={"size": preview_resolution, "format": "RGB888"},
             lores={"size": (640, 480), "format": "YUV420"},
             transform=self._transform
         )
