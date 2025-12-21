@@ -169,39 +169,41 @@ class RpiCamera(BaseCamera):
             return
         
         try:
-            # Capture preview frame
+            # Capture preview frame as numpy array
             array = self._cam.capture_array("main")
             
             # Convert numpy array to PIL Image
             image = Image.fromarray(array)
             
-            # Get preview area
+            # Get preview area from Pibooth window
             rect = self.get_rect()
             
-            # Resize image to fit preview area
+            # Resize to fit preview area
             image = image.resize((rect.width, rect.height), Image.LANCZOS)
             
-            # Convert PIL Image to Pygame surface
+            # Convert PIL to Pygame surface
             mode = image.mode
             size = image.size
             data = image.tobytes()
             
-            self._preview_surface = pygame.image.fromstring(data, size, mode)
+            preview_surface = pygame.image.fromstring(data, size, mode)
             
-            # Draw on window
+            # Get window surface and draw
             surface = self._window.get_surface()
-            surface.fill((0, 0, 0))  # Clear background
-            surface.blit(self._preview_surface, (rect.x, rect.y))
+            surface.blit(preview_surface, rect.topleft)
             
-            # Draw overlay if present
+            # Draw overlay text if present
             if self._overlay:
                 self._draw_overlay_on_surface(surface, rect)
             
-            pygame.display.flip()
+            # Update the display through Pibooth's window
+            self._window.show_image(surface)
             
         except Exception as e:
-            # Silently ignore preview errors to not block the application
-            pass
+            # Log errors for debugging
+            import traceback
+            print(f"Preview error: {e}")
+            traceback.print_exc()
     
     def _draw_overlay_on_surface(self, surface, rect):
         """Draw overlay text on pygame surface."""
@@ -211,20 +213,25 @@ class RpiCamera(BaseCamera):
         text = str(self._overlay.get('text', ''))
         alpha = self._overlay.get('alpha', 255)
         
-        # Create overlay surface
-        overlay_surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-        
-        # Render text
+        # Render text with large font
         font_size = min(rect.width, rect.height) // 3
         font = pygame.font.Font(None, font_size)
-        text_surf = font.render(text, True, (255, 255, 255, alpha))
         
-        # Center text
-        text_rect = text_surf.get_rect(center=(rect.width // 2, rect.height // 2))
-        overlay_surf.blit(text_surf, text_rect)
+        # Create semi-transparent text
+        text_color = (255, 255, 255)
+        text_surf = font.render(text, True, text_color)
         
-        # Draw on main surface
-        surface.blit(overlay_surf, (rect.x, rect.y))
+        # Center text on preview area
+        text_rect = text_surf.get_rect(center=rect.center)
+        
+        # Draw semi-transparent background
+        bg_rect = text_rect.inflate(40, 40)
+        bg_surf = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+        bg_surf.fill((0, 0, 0, int(alpha * 0.7)))
+        surface.blit(bg_surf, bg_rect.topleft)
+        
+        # Draw text
+        surface.blit(text_surf, text_rect)
 
     def preview_countdown(self, timeout, alpha=60, flash_led=None):
         """Show a countdown of timeout seconds on the preview.
