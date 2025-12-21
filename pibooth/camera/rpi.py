@@ -62,10 +62,12 @@ class RpiCamera(BaseCamera):
         self._transform = Transform(hflip=self.capture_flip, vflip=False)
         self._preview_started = False
         
-        # Create configuration with single main stream in RGB
-        # Using video configuration for continuous streaming
+        # Create configuration with dual streams:
+        # - main: high-resolution RGB for capture
+        # - lores: low-resolution RGB for fast preview
         self._preview_config = self._cam.create_video_configuration(
             main={"size": self.resolution, "format": "RGB888"},
+            lores={"size": (640, 480), "format": "RGB888"},  # Small RGB for preview
             transform=self._transform
         )
         
@@ -164,13 +166,13 @@ class RpiCamera(BaseCamera):
         self._window.show_image(self._get_preview_image())
     
     def _get_preview_image(self):
-        """Capture and return a PIL preview image from main stream."""
+        """Capture and return a PIL preview image from lores stream."""
         if not self._preview_started:
             return None
         
         try:
-            # Use MAIN stream for preview (RGB888 - no conversion needed)
-            rgb_array = self._cam.capture_array("main")
+            # Use LORES stream for preview (640x480 RGB888 - much faster!)
+            rgb_array = self._cam.capture_array("lores")
             
             # Convert numpy array directly to PIL Image
             image = Image.fromarray(rgb_array)
