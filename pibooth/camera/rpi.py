@@ -140,10 +140,19 @@ class RpiCamera(BaseCamera):
         self._window = window
         self.preview_flip = flip
         
+        # Update transform with preview flip setting
+        self._transform = Transform(hflip=flip, vflip=False)
+        self._preview_config["transform"] = self._transform
+        self._cam.configure(self._preview_config)
+        
         # Start the camera (streaming mode)
         if not self._preview_started:
             self._cam.start()
             self._preview_started = True
+            
+            # Warmup: Let AWB and AE stabilize (important for color accuracy)
+            import time
+            time.sleep(2.0)
         
         # Show initial preview frame
         self._window.show_image(self._get_preview_image())
@@ -244,6 +253,11 @@ class RpiCamera(BaseCamera):
             # Switch to high-resolution capture configuration
             if self._preview_started:
                 self._cam.stop()
+            
+            # Update transform for capture with capture_flip
+            capture_transform = Transform(hflip=self.capture_flip, vflip=False)
+            self._capture_config["transform"] = capture_transform
+            
             self._cam.configure(self._capture_config)
             self._cam.start()
             
