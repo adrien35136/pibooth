@@ -4,7 +4,7 @@ import time
 import pygame
 import numpy as np
 from io import BytesIO
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageDraw
 try:
     import cv2
 except ImportError:
