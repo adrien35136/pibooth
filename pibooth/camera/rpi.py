@@ -130,7 +130,10 @@ class RpiCamera(BaseCamera):
         # Add more effects as needed
         # For unsupported effects, return original image
         return image
-Captures frames and displays them in Pygame window.
+
+    def preview(self, window, flip=True):
+        """Display a preview using Picamera2.
+        Captures frames and displays them in Pygame window.
         """
         if self._preview_started:
             # Already running
@@ -149,38 +152,24 @@ Captures frames and displays them in Pygame window.
         """Update the preview by capturing and displaying a frame."""
         if not self._preview_started or not self._window:
             return
-        Displays live preview with countdown overlay.
-        """
-        timeout = int(timeout)
-        if timeout < 1:
-            raise ValueError("Start time shall be greater than 0")
-        if not self._preview_started:
-            raise EnvironmentError("Preview shall be started first")
-
-        while timeout > 0:
-            self._show_overlay(timeout, alpha)
+        
+        # Throttle preview updates to target FPS
+        current_time = time.time()
+        if current_time - self._last_preview_time < 1.0 / self._preview_fps:
+            return
+        self._last_preview_time = current_time
+        
+        try:
+            # Capture preview frame
+            array = self._cam.capture_array("main")
             
-            # Update preview with countdown
-            start_time = time.time()
-            while time.time() - start_time < 1.0:
-                self._update_preview()
-                time.sleep(0.033)  # ~30 FPS
+            # Convert numpy array to PIL Image
+            image = Image.fromarray(array)
             
-            timeout -= 1
-            self._hide_overlay()
+            # Get preview area
+            rect = self.get_rect()
             
-            # Enable flash bef while showing live preview.
-        """
-        self._show_overlay(get_translated_text('smile'), alpha)
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            self._update_preview()
-            time.sleep(0.033)  # ~30 FPS
-        self._show_overlay(get_translated_text('smile'), alpha)
-        # Show "smile" for a brief moment with live preview
-        for _ in range(10):
-            self._update_preview()
-            time.sleep(0.033
+            # Resize image to fit preview area
             image = image.resize((rect.width, rect.height), Image.LANCZOS)
             
             # Convert PIL Image to Pygame surface
@@ -227,14 +216,11 @@ Captures frames and displays them in Pygame window.
         
         # Draw on main surface
         surface.blit(overlay_surf, (rect.x, rect.y))
-        # Start the camera (streaming mode without native preview window)
-        self._cam.start()
-        self._preview_started = True
 
     def preview_countdown(self, timeout, alpha=60, flash_led=None):
-        """Show a countdown of `timeout` seconds on the preview.
+        """Show a countdown of timeout seconds on the preview.
         Returns when the countdown is finished.
-        Note: Overlay rendering should be handled by Pibooth's window system.
+        Displays live preview with countdown overlay.
         """
         timeout = int(timeout)
         if timeout < 1:
@@ -244,20 +230,34 @@ Captures frames and displays them in Pygame window.
 
         while timeout > 0:
             self._show_overlay(timeout, alpha)
-            time.sleep(1)
+            
+            # Update preview with countdown
+            start_time = time.time()
+            while time.time() - start_time < 1.0:
+                self._update_preview()
+                time.sleep(0.033)  # ~30 FPS
+            
             timeout -= 1
             self._hide_overlay()
+            
             # Enable flash before taking the picture
             if timeout == 1:
                 flash_led.on()
 
         self._show_overlay(get_translated_text('smile'), alpha)
+        # Show smile for a brief moment with live preview
+        for _ in range(10):
+            self._update_preview()
+            time.sleep(0.033)
 
     def preview_wait(self, timeout, alpha=60):
-        """Wait the given time.
+        """Wait the given time while showing live preview.
         """
-        time.sleep(timeout)
         self._show_overlay(get_translated_text('smile'), alpha)
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            self._update_preview()
+            time.sleep(0.033)  # ~30 FPS
 
     def stop_preview(self):
         """Stop the preview.
