@@ -58,11 +58,11 @@ class RpiCamera(BaseCamera):
         self._preview_started = False
         
         # Create configuration with DUAL streams:
-        # - lores: low-resolution stream for fast preview (like old Picamera)
-        # - main: high-resolution stream for capture only
+        # - lores: low-resolution YUV stream for fast preview (like old Picamera)
+        # - main: high-resolution RGB stream for capture
         self._preview_config = self._cam.create_video_configuration(
             main={"size": self.resolution, "format": "RGB888"},
-            lores={"size": (820, 616), "format": "RGB888"},  # Quarter resolution for preview
+            lores={"size": (820, 616), "format": "YUV420"},  # lores MUST be YUV
             transform=self._transform
         )
         
@@ -166,12 +166,16 @@ class RpiCamera(BaseCamera):
             return None
         
         try:
-            # Use LORES stream for preview (much faster, better quality)
+            # Use LORES stream for preview (YUV420 format)
             array = self._cam.capture_array("lores")
             
-            # No BGR/RGB conversion needed - Picamera2 returns correct RGB888
-            # Convert numpy array to PIL Image
-            image = Image.fromarray(array)
+            # Convert YUV420 to RGB using PIL
+            # YUV420 has shape (height*1.5, width) with Y plane + UV plane
+            h, w = array.shape[0] * 2 // 3, array.shape[1]
+            
+            # Use PIL to convert YUV to RGB
+            yuv_image = Image.frombytes('YCbCr', (w, h), array[:h].tobytes(), 'raw', 'YUV420')
+            image = yuv_image.convert('RGB')
             
             # Get the preview rectangle from Pibooth to know target size
             rect = self.get_rect()
@@ -185,6 +189,8 @@ class RpiCamera(BaseCamera):
             
         except Exception as e:
             LOGGER.warning(f"Preview capture error: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def preview_countdown(self, timeout, alpha=60, flash_led=None):
