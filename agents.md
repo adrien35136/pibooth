@@ -19,6 +19,7 @@ Ce fichier sert de **contexte projet permanent** pour les agents IA (GitHub Copi
 - Fonctionnement :
   - Capture photo OK
   - Génération des arrière-plans lente (~25 secondes)
+  - Système hybride : Raspberry Pi Camera pour le preview + Canon 1200D pour les captures
 - Cause probable :
   - Limitation CPU / RAM de la Raspberry Pi 3 B+
 
