@@ -179,6 +179,33 @@ class RpiCamera(BaseCamera):
                 # Get RGB image from main stream
                 image = request.make_image("main")
                 
+                # Draw overlay text (countdown) if present
+                if hasattr(self, '_overlay') and self._overlay:
+                    from PIL import ImageDraw, ImageFont
+                    draw = ImageDraw.Draw(image)
+                    text = self._overlay['text']
+                    
+                    # Use large font for countdown
+                    try:
+                        font_size = min(image.width, image.height) // 4
+                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                    except:
+                        font = ImageFont.load_default()
+                    
+                    # Get text size and position in center
+                    bbox = draw.textbbox((0, 0), text, font=font)
+                    text_width = bbox[2] - bbox[0]
+                    text_height = bbox[3] - bbox[1]
+                    x = (image.width - text_width) // 2
+                    y = (image.height - text_height) // 2
+                    
+                    # Draw text with outline for visibility
+                    outline_width = max(2, font_size // 40)
+                    for adj_x in range(-outline_width, outline_width + 1):
+                        for adj_y in range(-outline_width, outline_width + 1):
+                            draw.text((x + adj_x, y + adj_y), text, font=font, fill=(0, 0, 0))
+                    draw.text((x, y), text, font=font, fill=(255, 255, 255))
+                
                 # Get the preview rectangle from Pibooth to know target size
                 rect = self.get_rect()
                 
