@@ -282,12 +282,11 @@ class RpiCamera(BaseCamera):
                 flash_led.on()
 
         # Create smile overlay once, convert to pygame Surface
+        # Create smile overlay once
         self._show_overlay(get_translated_text('smile'), alpha)
         smile_img = self._overlay
         
-        # Pre-resize and convert to pygame Surface once
-        sample_img = self._get_preview_image()
-        if smile_img smile overlay once
+        # Pre-resize smile overlay once
         sample_img = self._get_preview_image()
         if smile_img and sample_img:
             smile_resized = smile_img.resize(sample_img.size, Image.NEAREST)
@@ -301,7 +300,9 @@ class RpiCamera(BaseCamera):
                 # OPTIMIZED: Use paste() with mask (2-3x faster)
                 preview_img.paste(smile_resized, (0, 0), smile_resized)
             
-            if preview_img:pygame.event.pump()
+            if preview_img:
+                updated_rect = self._window.show_image(preview_img)
+                pygame.event.pump()
                 if updated_rect:
                     pygame.display.update(updated_rect)
             time.sleep(0.05)  # 20 FPS
