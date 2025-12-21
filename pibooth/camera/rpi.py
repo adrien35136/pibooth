@@ -66,7 +66,7 @@ class RpiCamera(BaseCamera):
         # - main: low resolution RGB for very fast preview
         # - lores: low-resolution YUV420 for fast preview (required by Picamera2)
         # Using 820x616 (quarter of 3280x2464) for maximum performance
-        preview_resolution = (820, 616)
+        preview_resolution = (1280, 1024)
         self._preview_config = self._cam.create_video_configuration(
             main={"size": preview_resolution, "format": "RGB888"},
             lores={"size": (640, 480), "format": "YUV420"},
