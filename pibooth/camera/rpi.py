@@ -64,14 +64,17 @@ class RpiCamera(BaseCamera):
         self._overlay_cache = {}  # Cache for countdown overlays
         
         # Create configuration with dual streams:
-        # - main: low resolution RGB for very fast preview
-        # - lores: low-resolution YUV420 for fast preview (required by Picamera2)
-        # Using 820x616 (quarter of 3280x2464) for maximum performance
-        preview_resolution = (1280, 1024)
+        # - main: higher resolution RGB for quality preview
+        # - lores: not used but required by Picamera2
+        # Using 1640x1232 (half of 3280x2464) for good balance between quality and performance
+        preview_resolution = (1640, 1232)
         self._preview_config = self._cam.create_video_configuration(
             main={"size": preview_resolution, "format": "RGB888"},
             lores={"size": (640, 480), "format": "YUV420"},
-            transform=self._transform
+            transform=self._transform,
+            controls={
+                "FrameRate": 30.0,  # Force 30 FPS for smooth preview
+            }
         )
         
         # Start with preview configuration
@@ -83,10 +86,12 @@ class RpiCamera(BaseCamera):
         # Laisser AWB et AE se stabiliser (crucial pour Picamera2)
         time.sleep(2.0)
         
-        # Après stabilisation, appliquer les contrôles
-        preview_gain = self.preview_iso / 100.0
+        # Après stabilisation, appliquer les contrôles optimisés
+        # ISO 1600 peut être trop élevé pour le preview, utiliser une valeur plus faible
+        preview_gain = min(self.preview_iso / 100.0, 8.0)  # Cap à 8.0 (ISO 800) pour le preview
         controls = {
             "AnalogueGain": preview_gain,
+            "Sharpness": 1.5,  # Améliorer la netteté du preview
         }
         self._cam.set_controls(controls)
         
@@ -220,9 +225,10 @@ class RpiCamera(BaseCamera):
                 rect = self.get_rect()
                 
                 # Resize to fit preview area while keeping aspect ratio
+                # Use BILINEAR for better balance between quality and speed (faster than LANCZOS)
                 from pibooth.pictures import sizing
                 new_size = sizing.new_size_keep_aspect_ratio(image.size, (rect.width, rect.height))
-                image = image.resize(new_size, Image.LANCZOS)
+                image = image.resize(new_size, Image.BILINEAR)
                 
                 return image
             finally:
@@ -249,14 +255,22 @@ class RpiCamera(BaseCamera):
             self._show_overlay(timeout, alpha)
             overlay_image = self._overlay
             
+            # Pre-resize overlay once for this second (avoid resizing every frame)
+            # Get a sample frame to know the size
+            sample_img = self._get_preview_image()
+            if overlay_image and sample_img:
+                overlay_resized = overlay_image.resize(sample_img.size, Image.BILINEAR)
+            else:
+                overlay_resized = None
+            
             # Update preview with countdown (show multiple frames during 1 second)
             start_time = time.time()
             while time.time() - start_time < 1.0:
                 preview_img = self._get_preview_image()
-                if overlay_image and preview_img:
+                if overlay_resized and preview_img:
                     # Composite overlay onto preview (single image display)
                     preview_img = preview_img.convert('RGBA')
-                    preview_img = Image.alpha_composite(preview_img, overlay_image.resize(preview_img.size, Image.LANCZOS))
+                    preview_img = Image.alpha_composite(preview_img, overlay_resized)
                     preview_img = preview_img.convert('RGB')
                 updated_rect = self._window.show_image(preview_img)
                 pygame.event.pump()
@@ -273,19 +287,27 @@ class RpiCamera(BaseCamera):
         # Create smile overlay once, reuse for all frames
         self._show_overlay(get_translated_text('smile'), alpha)
         smile_overlay = self._overlay
+        
+        # Pre-resize smile overlay once
+        preview_img = self._get_preview_image()
+        if smile_overlay and preview_img:
+            smile_resized = smile_overlay.resize(preview_img.size, Image.BILINEAR)
+        else:
+            smile_resized = None
+        
         # Show smile with live preview (reduced iterations for faster response)
-        for _ in range(3):
+        for _ in range(5):
             preview_img = self._get_preview_image()
-            if smile_overlay and preview_img:
+            if smile_resized and preview_img:
                 # Composite overlay onto preview (single image display)
                 preview_img = preview_img.convert('RGBA')
-                preview_img = Image.alpha_composite(preview_img, smile_overlay.resize(preview_img.size, Image.LANCZOS))
+                preview_img = Image.alpha_composite(preview_img, smile_resized)
                 preview_img = preview_img.convert('RGB')
             updated_rect = self._window.show_image(preview_img)
             pygame.event.pump()
             if updated_rect:
                 pygame.display.update(updated_rect)
-            time.sleep(0.1)  # Small delay to see "smile" message
+            time.sleep(0.05)  # Small delay to see "smile" message
 
     def preview_wait(self, timeout, alpha=60):
         """Wait the given time while showing live preview.
