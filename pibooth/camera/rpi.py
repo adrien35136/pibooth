@@ -97,7 +97,7 @@ class RpiCamera(BaseCamera):
         """
         if self._window:
             rect = self.get_rect()
-            pil_image = self.build_overlay(rect.size, text, alpha)
+            pil_image = self.build_overlay(rect.size, str(text), alpha)
             self._overlay = pil_image
 
     def _hide_overlay(self):
