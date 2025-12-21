@@ -252,9 +252,13 @@ class RpiCamera(BaseCamera):
             # Update preview with countdown (show multiple frames during 1 second)
             start_time = time.time()
             while time.time() - start_time < 1.0:
-                updated_rect = self._window.show_image(self._get_preview_image())
-                if overlay_image:
-                    self._window.show_image(overlay_image)
+                preview_img = self._get_preview_image()
+                if overlay_image and preview_img:
+                    # Composite overlay onto preview (single image display)
+                    preview_img = preview_img.convert('RGBA')
+                    preview_img = Image.alpha_composite(preview_img, overlay_image.resize(preview_img.size, Image.LANCZOS))
+                    preview_img = preview_img.convert('RGB')
+                updated_rect = self._window.show_image(preview_img)
                 pygame.event.pump()
                 if updated_rect:
                     pygame.display.update(updated_rect)
@@ -271,9 +275,13 @@ class RpiCamera(BaseCamera):
         smile_overlay = self._overlay
         # Show smile with live preview (reduced iterations for faster response)
         for _ in range(3):
-            updated_rect = self._window.show_image(self._get_preview_image())
-            if smile_overlay:
-                self._window.show_image(smile_overlay)
+            preview_img = self._get_preview_image()
+            if smile_overlay and preview_img:
+                # Composite overlay onto preview (single image display)
+                preview_img = preview_img.convert('RGBA')
+                preview_img = Image.alpha_composite(preview_img, smile_overlay.resize(preview_img.size, Image.LANCZOS))
+                preview_img = preview_img.convert('RGB')
+            updated_rect = self._window.show_image(preview_img)
             pygame.event.pump()
             if updated_rect:
                 pygame.display.update(updated_rect)
