@@ -61,6 +61,7 @@ class RpiCamera(BaseCamera):
         # Store configurations for later use
         self._transform = Transform(hflip=self.capture_flip, vflip=False)
         self._preview_started = False
+        self._overlay_cache = {}  # Cache for countdown overlays
         
         # Create configuration with dual streams:
         # - main: low resolution RGB for very fast preview
@@ -92,30 +93,44 @@ class RpiCamera(BaseCamera):
         # Arrêter pour reconfigurer proprement au moment du preview()
         self._cam.stop()
 
+    def _create_overlay_image(self, size, text, alpha):
+        """Create overlay image with text (helper method).
+        """
+        from pibooth import fonts
+        
+        # Create transparent overlay
+        image = Image.new('RGBA', size)
+        draw = ImageDraw.Draw(image)
+        
+        # Use smaller font size (similar to annotate_text_size=80)
+        # Old Picamera used about 1/15 of screen height
+        font = fonts.get_pil_font(str(text), fonts.CURRENT, 
+                                 size[0] * 0.3, size[1] * 0.15)
+        bbox = font.getbbox(str(text))
+        txt_width = bbox[2] - bbox[0]
+        txt_height = bbox[3] - bbox[1]
+        
+        # Center horizontally and vertically
+        position = ((size[0] - txt_width) // 2, (size[1] - txt_height) // 2)
+        draw.text(position, str(text), (255, 255, 255, alpha), font=font)
+        
+        return image
+    
     def _show_overlay(self, text, alpha):
-        """Create overlay with better sizing, similar to old Picamera annotate_text.
+        """Show overlay using cache if available for countdown numbers.
         """
         if self._window:
-            from pibooth import fonts
+            text_str = str(text)
+            # Try to use cached overlay for countdown numbers
+            if hasattr(self, '_overlay_cache') and text_str.isdigit():
+                num = int(text_str)
+                if num in self._overlay_cache:
+                    self._overlay = self._overlay_cache[num]
+                    return
+            
+            # Fallback: create overlay on-the-fly for non-cached text
             rect = self.get_rect()
-            
-            # Create transparent overlay
-            image = Image.new('RGBA', rect.size)
-            draw = ImageDraw.Draw(image)
-            
-            # Use smaller font size (similar to annotate_text_size=80)
-            # Old Picamera used about 1/15 of screen height
-            font = fonts.get_pil_font(str(text), fonts.CURRENT, 
-                                     rect.width * 0.3, rect.height * 0.15)
-            bbox = font.getbbox(str(text))
-            txt_width = bbox[2] - bbox[0]
-            txt_height = bbox[3] - bbox[1]
-            
-            # Center horizontally and vertically
-            position = ((rect.width - txt_width) // 2, (rect.height - txt_height) // 2)
-            draw.text(position, str(text), (255, 255, 255, alpha), font=font)
-            
-            self._overlay = image
+            self._overlay = self._create_overlay_image(rect.size, text_str, alpha)
 
     def _hide_overlay(self):
         """Remove any existing overlay.
@@ -171,6 +186,12 @@ class RpiCamera(BaseCamera):
         self._transform = Transform(hflip=flip, vflip=False)
         self._preview_config["transform"] = self._transform
         self._cam.configure(self._preview_config)
+        
+        # Pre-create countdown overlays (1-5) to avoid slow font loading during countdown
+        self._overlay_cache = {}
+        rect = self.get_rect()
+        for num in range(1, 6):
+            self._overlay_cache[num] = self._create_overlay_image(rect.size, str(num), 60)
         
         # Start the camera (streaming mode)
         if not self._preview_started:
