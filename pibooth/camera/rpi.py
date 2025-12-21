@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import time
-import threading
 import pygame
 import numpy as np
 from io import BytesIO
@@ -75,11 +74,6 @@ class RpiCamera(BaseCamera):
         # Store original transform for later modifications
         self._transform = Transform(hflip=self.capture_flip, vflip=False)
         self._preview_started = False
-        self._preview_surface = None
-        self._last_preview_time = 0
-        self._preview_fps = 15  # Target FPS for preview
-        self._preview_thread = None
-        self._preview_running = False
 
     def _show_overlay(self, text, alpha):
         """Add an image as an overlay using Pygame (Picamera2 doesn't have native overlays).
@@ -135,38 +129,23 @@ class RpiCamera(BaseCamera):
         return image
 
     def preview(self, window, flip=True):
-        """Display a preview using Picamera2.
-        Captures frames and displays them in Pygame window.
+        """Setup the preview.
         """
-        if self._preview_started:
-            # Already running
-            return
-
         self._window = window
+        self.preview_flip = flip
         
         # Start the camera (streaming mode)
-        self._cam.start()
-        self._preview_started = True
+        if not self._preview_started:
+            self._cam.start()
+            self._preview_started = True
         
-        # Start preview thread for continuous frame updates
-        self._preview_running = True
-        self._preview_thread = threading.Thread(target=self._preview_loop, daemon=True)
-        self._preview_thread.start()
+        # Show initial preview frame
+        self._window.show_image(self._get_preview_image())
     
-    def _preview_loop(self):
-        """Thread loop that continuously updates the preview."""
-        while self._preview_running:
-            try:
-                self._update_preview()
-                time.sleep(1.0 / self._preview_fps)  # Throttle to target FPS
-            except Exception:
-                # Silently ignore errors to keep thread running
-                time.sleep(0.1)
-    
-    def _update_preview(self):
-        """Update the preview by capturing and displaying a frame."""
-        if not self._preview_started or not self._window:
-            return
+    def _get_preview_image(self):
+        """Capture and return a PIL preview image."""
+        if not self._preview_started:
+            return None
         
         try:
             # Capture preview frame as numpy array
@@ -175,68 +154,15 @@ class RpiCamera(BaseCamera):
             # Convert numpy array to PIL Image
             image = Image.fromarray(array)
             
-            # Get preview area from Pibooth window
-            rect = self.get_rect()
-            
-            # Resize to fit preview area
-            image = image.resize((rect.width, rect.height), Image.LANCZOS)
-            
-            # Convert PIL to Pygame surface
-            mode = image.mode
-            size = image.size
-            data = image.tobytes()
-            
-            preview_surface = pygame.image.fromstring(data, size, mode)
-            
-            # Get window surface and draw (PiWindow has public 'surface' attribute)
-            surface = self._window.surface
-            surface.blit(preview_surface, rect.topleft)
-            
-            # Draw overlay text if present
-            if self._overlay:
-                self._draw_overlay_on_surface(surface, rect)
-            
-            # Update the display
-            pygame.display.update()
+            return image
             
         except Exception as e:
-            # Log errors for debugging
-            import traceback
-            print(f"Preview error: {e}")
-            traceback.print_exc()
+            LOGGER.warning(f"Preview capture error: {e}")
+            return None
     
-    def _draw_overlay_on_surface(self, surface, rect):
-        """Draw overlay text on pygame surface."""
-        if not self._overlay:
-            return
-        
-        text = str(self._overlay.get('text', ''))
-        alpha = self._overlay.get('alpha', 255)
-        
-        # Render text with large font
-        font_size = min(rect.width, rect.height) // 3
-        font = pygame.font.Font(None, font_size)
-        
-        # Create semi-transparent text
-        text_color = (255, 255, 255)
-        text_surf = font.render(text, True, text_color)
-        
-        # Center text on preview area
-        text_rect = text_surf.get_rect(center=rect.center)
-        
-        # Draw semi-transparent background
-        bg_rect = text_rect.inflate(40, 40)
-        bg_surf = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
-        bg_surf.fill((0, 0, 0, int(alpha * 0.7)))
-        surface.blit(bg_surf, bg_rect.topleft)
-        
-        # Draw text
-        surface.blit(text_surf, text_rect)
-
     def preview_countdown(self, timeout, alpha=60, flash_led=None):
         """Show a countdown of timeout seconds on the preview.
         Returns when the countdown is finished.
-        Displays live preview with countdown overlay.
         """
         timeout = int(timeout)
         if timeout < 1:
@@ -247,11 +173,14 @@ class RpiCamera(BaseCamera):
         while timeout > 0:
             self._show_overlay(timeout, alpha)
             
-            # Update preview with countdown
+            # Update preview with countdown (show multiple frames during 1 second)
             start_time = time.time()
             while time.time() - start_time < 1.0:
-                self._update_preview()
-                time.sleep(0.033)  # ~30 FPS
+                updated_rect = self._window.show_image(self._get_preview_image())
+                pygame.event.pump()
+                if updated_rect:
+                    pygame.display.update(updated_rect)
+                time.sleep(0.05)  # ~20 FPS
             
             timeout -= 1
             self._hide_overlay()
@@ -261,10 +190,13 @@ class RpiCamera(BaseCamera):
                 flash_led.on()
 
         self._show_overlay(get_translated_text('smile'), alpha)
-        # Show smile for a brief moment with live preview
+        # Show smile with live preview
         for _ in range(10):
-            self._update_preview()
-            time.sleep(0.033)
+            updated_rect = self._window.show_image(self._get_preview_image())
+            pygame.event.pump()
+            if updated_rect:
+                pygame.display.update(updated_rect)
+            time.sleep(0.05)
 
     def preview_wait(self, timeout, alpha=60):
         """Wait the given time while showing live preview.
@@ -272,20 +204,16 @@ class RpiCamera(BaseCamera):
         self._show_overlay(get_translated_text('smile'), alpha)
         start_time = time.time()
         while time.time() - start_time < timeout:
-            self._update_preview()
-            time.sleep(0.033)  # ~30 FPS
+            updated_rect = self._window.show_image(self._get_preview_image())
+            pygame.event.pump()
+            if updated_rect:
+                pygame.display.update(updated_rect)
+            time.sleep(0.05)  # ~20 FPS
 
     def stop_preview(self):
         """Stop the preview.
         """
         self._hide_overlay()
-        
-        # Stop preview thread
-        if self._preview_running:
-            self._preview_running = False
-            if self._preview_thread and self._preview_thread.is_alive():
-                self._preview_thread.join(timeout=1.0)
-        
         if self._preview_started:
             self._cam.stop()
             self._preview_started = False
