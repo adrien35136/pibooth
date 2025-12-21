@@ -93,12 +93,12 @@ class RpiCamera(BaseCamera):
         self._cam.stop()
 
     def _show_overlay(self, text, alpha):
-        """Add an overlay using Pibooth's window system.
+        """Create and display overlay using base class method.
         """
         if self._window:
-            self._overlay = {'text': str(text), 'alpha': alpha}
-            # Use Pibooth's built-in overlay system
-            self._window.show_text(str(text), alpha)
+            rect = self.get_rect()
+            pil_image = self.build_overlay(rect.size, text, alpha)
+            self._overlay = pil_image
 
     def _hide_overlay(self):
         """Remove any existing overlay.
@@ -213,6 +213,8 @@ class RpiCamera(BaseCamera):
             start_time = time.time()
             while time.time() - start_time < 1.0:
                 updated_rect = self._window.show_image(self._get_preview_image())
+                if self._overlay:
+                    self._window.show_image(self._overlay)
                 pygame.event.pump()
                 if updated_rect:
                     pygame.display.update(updated_rect)
@@ -228,6 +230,8 @@ class RpiCamera(BaseCamera):
         # Show smile with live preview (reduced iterations for faster response)
         for _ in range(3):
             updated_rect = self._window.show_image(self._get_preview_image())
+            if self._overlay:
+                self._window.show_image(self._overlay)
             pygame.event.pump()
             if updated_rect:
                 pygame.display.update(updated_rect)
