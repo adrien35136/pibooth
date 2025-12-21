@@ -2,23 +2,15 @@
 
 import time
 import pygame
-import numpy as np
-from io import BytesIO
+import traceback
 from PIL import Image, ImageOps, ImageDraw
-try:
-    import cv2
-except ImportError:
-    cv2 = None
-try:
-    from picamera2 import Picamera2
-    from libcamera import Transform
-except ImportError:
-    Picamera2 = None  # picamera2 is optional
-    Transform = None
+from picamera2 import Picamera2
+from libcamera import Transform
 from pibooth.utils import LOGGER
 from pibooth.language import get_translated_text
 from pibooth.camera.base import BaseCamera
-
+from pibooth import fonts
+from pibooth.pictures import sizing
 
 def get_rpi_camera_proxy(port=None):
     """Return camera proxy if a Raspberry Pi compatible camera is found
@@ -89,7 +81,7 @@ class RpiCamera(BaseCamera):
         
         # Après stabilisation, appliquer les contrôles optimisés
         # ISO 1600 peut être trop élevé pour le preview, utiliser une valeur plus faible
-        preview_gain = min(self.preview_iso / 100.0, 8.0)  # Cap à 8.0 (ISO 800) pour le preview
+        preview_gain = min(self.preview_iso / 100.0, 6.0)  # Cap à 6.0 (ISO 600) pour moins de bruit
         controls = {
             "AnalogueGain": preview_gain,
             "Sharpness": 1.5,  # Améliorer la netteté du preview
@@ -101,9 +93,7 @@ class RpiCamera(BaseCamera):
 
     def _create_overlay_image(self, size, text, alpha):
         """Create overlay image with text (helper method).
-        """
-        from pibooth import fonts
-        
+        """        
         # Create transparent overlay
         image = Image.new('RGBA', size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
@@ -227,7 +217,6 @@ class RpiCamera(BaseCamera):
                 
                 # Resize to fit preview area while keeping aspect ratio
                 # Use BILINEAR for better balance between quality and speed (faster than LANCZOS)
-                from pibooth.pictures import sizing
                 new_size = sizing.new_size_keep_aspect_ratio(image.size, (rect.width, rect.height))
                 image = image.resize(new_size, Image.BILINEAR)
                 
@@ -237,7 +226,6 @@ class RpiCamera(BaseCamera):
             
         except Exception as e:
             LOGGER.warning(f"Preview capture error: {e}")
-            import traceback
             traceback.print_exc()
             return None
     
@@ -302,20 +290,21 @@ class RpiCamera(BaseCamera):
         else:
             smile_resized = None
         
-        # Show smile with live preview (optimized compositing)
+        # Show smile with live preview (~20 FPS for 0.25s total)
         for _ in range(5):
             preview_img = self._get_preview_image()
-            if preview_img and smile_resized:
-                # Fast composite: in-place alpha_composite
-                preview_rgba = preview_img.convert('RGBA')
-                preview_rgba.alpha_composite(smile_resized, (0, 0))
-                preview_img = preview_rgba.convert('RGB')
-            
-            updated_rect = self._window.show_image(preview_img)
-            pygame.event.pump()
-            if updated_rect:
-                pygame.display.update(updated_rect)
-            time.sleep(0.05)  # Small delay to see "smile" message
+            if preview_img:
+                # Only composite if overlay exists
+                if smile_resized:
+                    preview_rgba = preview_img.convert('RGBA')
+                    preview_rgba.alpha_composite(smile_resized, (0, 0))
+                    preview_img = preview_rgba.convert('RGB')
+                
+                updated_rect = self._window.show_image(preview_img)
+                pygame.event.pump()
+                if updated_rect:
+                    pygame.display.update(updated_rect)
+            time.sleep(0.05)  # 20 FPS
 
     def preview_wait(self, timeout, alpha=60):
         """Wait the given time while showing live preview.
