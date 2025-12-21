@@ -57,29 +57,33 @@ class RpiCamera(BaseCamera):
         self._transform = Transform(hflip=self.capture_flip, vflip=False)
         self._preview_started = False
         
-        # Create preview configuration optimized for video quality
-        # Use video configuration for smoother preview with better AWB/AE
+        # Create configuration with DUAL streams:
+        # - lores: low-resolution stream for fast preview (like old Picamera)
+        # - main: high-resolution stream for capture only
         self._preview_config = self._cam.create_video_configuration(
-            main={"size": (1640, 1232), "format": "RGB888"},  # Half resolution for speed
-            transform=self._transform
-        )
-        
-        # Create HIGH resolution capture configuration
-        self._capture_config = self._cam.create_still_configuration(
             main={"size": self.resolution, "format": "RGB888"},
+            lores={"size": (820, 616), "format": "RGB888"},  # Quarter resolution for preview
             transform=self._transform
         )
         
-        # Start with preview configuration (low res)
+        # Start with preview configuration
         self._cam.configure(self._preview_config)
         
-        # Set minimal controls - let camera auto-adjust everything
-        # (ISO → AnalogueGain conversion: gain = iso / 100)
+        # Démarrer la caméra immédiatement pour le warmup AWB
+        self._cam.start()
+        
+        # Laisser AWB et AE se stabiliser (crucial pour Picamera2)
+        time.sleep(2.0)
+        
+        # Après stabilisation, appliquer les contrôles
         preview_gain = self.preview_iso / 100.0
         controls = {
             "AnalogueGain": preview_gain,
         }
         self._cam.set_controls(controls)
+        
+        # Arrêter pour reconfigurer proprement au moment du preview()
+        self._cam.stop()
 
     def _show_overlay(self, text, alpha):
         """Add an image as an overlay using Pygame (Picamera2 doesn't have native overlays).
@@ -150,22 +154,22 @@ class RpiCamera(BaseCamera):
             self._cam.start()
             self._preview_started = True
             
-            # Warmup: Let AWB and AE stabilize (important for color accuracy)
-            import time
-            time.sleep(2.0)
+            # Brief warmup après le démarrage
+            time.sleep(1.0)
         
         # Show initial preview frame
         self._window.show_image(self._get_preview_image())
     
     def _get_preview_image(self):
-        """Capture and return a PIL preview image resized to fit preview area."""
+        """Capture and return a PIL preview image from lores stream."""
         if not self._preview_started:
             return None
         
         try:
-            # Capture preview frame as numpy array
-            array = self._cam.capture_array("main")
+            # Use LORES stream for preview (much faster, better quality)
+            array = self._cam.capture_array("lores")
             
+            # No BGR/RGB conversion needed - Picamera2 returns correct RGB888
             # Convert numpy array to PIL Image
             image = Image.fromarray(array)
             
@@ -250,51 +254,28 @@ class RpiCamera(BaseCamera):
             raise ValueError("Invalid capture effect '{}' (choose among {})".format(effect, self.IMAGE_EFFECTS))
 
         try:
-            # Switch to high-resolution capture configuration
-            if self._preview_started:
-                self._cam.stop()
+            # Adjust ISO/gain for capture if needed
+            if self.capture_iso != self.preview_iso:
+                capture_gain = self.capture_iso / 100.0
+                self._cam.set_controls({"AnalogueGain": capture_gain})
+                time.sleep(0.3)  # Brief pause for adjustment
             
-            # Update transform for capture with capture_flip
-            capture_transform = Transform(hflip=self.capture_flip, vflip=False)
-            self._capture_config["transform"] = capture_transform
-            
-            self._cam.configure(self._capture_config)
-            self._cam.start()
-            
-            # Adjust ISO/gain for capture
-            capture_gain = self.capture_iso / 100.0
-            self._cam.set_controls({"AnalogueGain": capture_gain})
-            
-            # Brief pause to let camera adjust and AWB/AE stabilize
-            time.sleep(0.5)
-            
-            # Capture as numpy array (RGB format)
+            # Capture from MAIN stream (high resolution)
             array = self._cam.capture_array("main")
             
             # Store capture with effect for post-processing
             self._captures.append((array, effect))
             
-            # Switch back to low-resolution preview configuration
-            self._cam.stop()
-            self._cam.configure(self._preview_config)
-            if self._preview_started:
-                self._cam.start()
-            
             # Restore preview ISO/gain
-            preview_gain = self.preview_iso / 100.0
-            self._cam.set_controls({"AnalogueGain": preview_gain})
+            if self.capture_iso != self.preview_iso:
+                preview_gain = self.preview_iso / 100.0
+                self._cam.set_controls({"AnalogueGain": preview_gain})
                 
         except Exception as e:
             # In case of error, ensure we restore preview settings
-            try:
-                self._cam.stop()
-                self._cam.configure(self._preview_config)
-                if self._preview_started:
-                    self._cam.start()
+            if self.capture_iso != self.preview_iso:
                 preview_gain = self.preview_iso / 100.0
                 self._cam.set_controls({"AnalogueGain": preview_gain})
-            except:
-                pass
             raise e
 
         self._hide_overlay()  # If stop_preview() has not been called
