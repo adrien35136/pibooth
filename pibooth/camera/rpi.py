@@ -78,6 +78,13 @@ class RpiCamera(BaseCamera):
             "AnalogueGain": preview_gain,
             "AeEnable": True,  # Auto-exposure
             "AwbEnable": True,  # Auto white balance
+            "AwbMode": 0,  # Auto white balance mode
+            "Sharpness": 1.5,  # Increase sharpness for better image quality
+            "Contrast": 1.1,  # Slight contrast boost
+            "Saturation": 1.0,  # Normal saturation
+            "Brightness": 0.0,  # Normal brightness
+            "ExposureTime": 0,  # Auto (will be controlled by AeEnable)
+            "NoiseReductionMode": 1,  # High quality noise reduction
         }
         self._cam.set_controls(controls)
 
@@ -247,12 +254,22 @@ class RpiCamera(BaseCamera):
             self._cam.configure(self._capture_config)
             self._cam.start()
             
-            # Adjust ISO/gain for capture
+            # Adjust ISO/gain and quality settings for capture
             capture_gain = self.capture_iso / 100.0
-            self._cam.set_controls({"AnalogueGain": capture_gain})
+            self._cam.set_controls({
+                "AnalogueGain": capture_gain,
+                "AeEnable": True,
+                "AwbEnable": True,
+                "AwbMode": 0,
+                "Sharpness": 1.5,
+                "Contrast": 1.1,
+                "Saturation": 1.0,
+                "Brightness": 0.0,
+                "NoiseReductionMode": 2,  # Maximum quality for capture
+            })
             
-            # Brief pause to let camera adjust
-            time.sleep(0.2)
+            # Brief pause to let camera adjust and stabilize
+            time.sleep(0.3)
             
             # Capture as numpy array (RGB format)
             array = self._cam.capture_array("main")
@@ -266,9 +283,19 @@ class RpiCamera(BaseCamera):
             if self._preview_started:
                 self._cam.start()
             
-            # Restore preview ISO/gain
+            # Restore preview ISO/gain and quality settings
             preview_gain = self.preview_iso / 100.0
-            self._cam.set_controls({"AnalogueGain": preview_gain})
+            self._cam.set_controls({
+                "AnalogueGain": preview_gain,
+                "AeEnable": True,
+                "AwbEnable": True,
+                "AwbMode": 0,
+                "Sharpness": 1.5,
+                "Contrast": 1.1,
+                "Saturation": 1.0,
+                "Brightness": 0.0,
+                "NoiseReductionMode": 1,
+            })
                 
         except Exception as e:
             # In case of error, ensure we restore preview settings
@@ -278,7 +305,17 @@ class RpiCamera(BaseCamera):
                 if self._preview_started:
                     self._cam.start()
                 preview_gain = self.preview_iso / 100.0
-                self._cam.set_controls({"AnalogueGain": preview_gain})
+                self._cam.set_controls({
+                    "AnalogueGain": preview_gain,
+                    "AeEnable": True,
+                    "AwbEnable": True,
+                    "AwbMode": 0,
+                    "Sharpness": 1.5,
+                    "Contrast": 1.1,
+                    "Saturation": 1.0,
+                    "Brightness": 0.0,
+                    "NoiseReductionMode": 1,
+                })
             except:
                 pass
             raise e
