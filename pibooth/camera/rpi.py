@@ -93,13 +93,12 @@ class RpiCamera(BaseCamera):
         self._cam.stop()
 
     def _show_overlay(self, text, alpha):
-        """Add an image as an overlay using Pygame (Picamera2 doesn't have native overlays).
-        Note: The actual overlay rendering is handled by Pibooth's window system.
-        We just store the overlay data here for compatibility.
+        """Add an overlay using Pibooth's window system.
         """
         if self._window:
-            # Store overlay information for potential Pygame rendering
             self._overlay = {'text': str(text), 'alpha': alpha}
+            # Use Pibooth's built-in overlay system
+            self._window.show_text(str(text), alpha)
 
     def _hide_overlay(self):
         """Remove any existing overlay.
@@ -178,43 +177,6 @@ class RpiCamera(BaseCamera):
             try:
                 # Get RGB image from main stream
                 image = request.make_image("main")
-                
-                # Draw overlay text (countdown) if present
-                if hasattr(self, '_overlay') and self._overlay:
-                    from PIL import ImageDraw, ImageFont
-                    
-                    # Create semi-transparent overlay layer
-                    overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
-                    draw = ImageDraw.Draw(overlay)
-                    text = self._overlay['text']
-                    alpha = self._overlay.get('alpha', 60)
-                    
-                    # Use large font for countdown
-                    try:
-                        font_size = min(image.width, image.height) // 4
-                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-                    except:
-                        font = ImageFont.load_default()
-                    
-                    # Get text size and position in center
-                    bbox = draw.textbbox((0, 0), text, font=font)
-                    text_width = bbox[2] - bbox[0]
-                    text_height = bbox[3] - bbox[1]
-                    x = (image.width - text_width) // 2
-                    y = (image.height - text_height) // 2
-                    
-                    # Draw text with outline for visibility (with alpha transparency)
-                    outline_width = max(2, font_size // 40)
-                    outline_alpha = int(alpha * 2.55)  # Convert 0-100 to 0-255
-                    for adj_x in range(-outline_width, outline_width + 1):
-                        for adj_y in range(-outline_width, outline_width + 1):
-                            draw.text((x + adj_x, y + adj_y), text, font=font, fill=(0, 0, 0, outline_alpha))
-                    draw.text((x, y), text, font=font, fill=(255, 255, 255, outline_alpha))
-                    
-                    # Convert base image to RGBA and composite with overlay
-                    image = image.convert('RGBA')
-                    image = Image.alpha_composite(image, overlay)
-                    image = image.convert('RGB')
                 
                 # Get the preview rectangle from Pibooth to know target size
                 rect = self.get_rect()
