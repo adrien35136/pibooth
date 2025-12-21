@@ -166,16 +166,16 @@ class RpiCamera(BaseCamera):
         self._window.show_image(self._get_preview_image())
     
     def _get_preview_image(self):
-        """Capture and return a PIL preview image from lores stream."""
+        """Capture and return a PIL preview image from main stream."""
         if not self._preview_started:
             return None
         
         try:
-            # Capture from lores and let Picamera2 convert YUV to RGB automatically
+            # Capture request and use main stream (RGB888)
             request = self._cam.capture_request()
             try:
-                # Get RGB array from lores stream with automatic YUV->RGB conversion
-                image = request.make_image("lores")
+                # Get RGB image from main stream
+                image = request.make_image("main")
                 
                 # Get the preview rectangle from Pibooth to know target size
                 rect = self.get_rect()
@@ -215,7 +215,6 @@ class RpiCamera(BaseCamera):
                 pygame.event.pump()
                 if updated_rect:
                     pygame.display.update(updated_rect)
-                time.sleep(0.05)  # ~20 FPS
             
             timeout -= 1
             self._hide_overlay()
@@ -231,7 +230,6 @@ class RpiCamera(BaseCamera):
             pygame.event.pump()
             if updated_rect:
                 pygame.display.update(updated_rect)
-            time.sleep(0.05)
 
     def preview_wait(self, timeout, alpha=60):
         """Wait the given time while showing live preview.
@@ -243,7 +241,6 @@ class RpiCamera(BaseCamera):
             pygame.event.pump()
             if updated_rect:
                 pygame.display.update(updated_rect)
-            time.sleep(0.05)  # ~20 FPS
 
     def stop_preview(self):
         """Stop the preview.
