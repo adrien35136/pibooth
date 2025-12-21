@@ -93,12 +93,29 @@ class RpiCamera(BaseCamera):
         self._cam.stop()
 
     def _show_overlay(self, text, alpha):
-        """Create and display overlay using base class method.
+        """Create overlay with better sizing, similar to old Picamera annotate_text.
         """
         if self._window:
+            from pibooth import fonts
             rect = self.get_rect()
-            pil_image = self.build_overlay(rect.size, str(text), alpha)
-            self._overlay = pil_image
+            
+            # Create transparent overlay
+            image = Image.new('RGBA', rect.size)
+            draw = ImageDraw.Draw(image)
+            
+            # Use smaller font size (similar to annotate_text_size=80)
+            # Old Picamera used about 1/15 of screen height
+            font = fonts.get_pil_font(str(text), fonts.CURRENT, 
+                                     rect.width * 0.3, rect.height * 0.15)
+            bbox = font.getbbox(str(text))
+            txt_width = bbox[2] - bbox[0]
+            txt_height = bbox[3] - bbox[1]
+            
+            # Center horizontally and vertically
+            position = ((rect.width - txt_width) // 2, (rect.height - txt_height) // 2)
+            draw.text(position, str(text), (255, 255, 255, alpha), font=font)
+            
+            self._overlay = image
 
     def _hide_overlay(self):
         """Remove any existing overlay.
