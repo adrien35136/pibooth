@@ -182,8 +182,12 @@ class RpiCamera(BaseCamera):
                 # Draw overlay text (countdown) if present
                 if hasattr(self, '_overlay') and self._overlay:
                     from PIL import ImageDraw, ImageFont
-                    draw = ImageDraw.Draw(image)
+                    
+                    # Create semi-transparent overlay layer
+                    overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+                    draw = ImageDraw.Draw(overlay)
                     text = self._overlay['text']
+                    alpha = self._overlay.get('alpha', 60)
                     
                     # Use large font for countdown
                     try:
@@ -199,12 +203,18 @@ class RpiCamera(BaseCamera):
                     x = (image.width - text_width) // 2
                     y = (image.height - text_height) // 2
                     
-                    # Draw text with outline for visibility
+                    # Draw text with outline for visibility (with alpha transparency)
                     outline_width = max(2, font_size // 40)
+                    outline_alpha = int(alpha * 2.55)  # Convert 0-100 to 0-255
                     for adj_x in range(-outline_width, outline_width + 1):
                         for adj_y in range(-outline_width, outline_width + 1):
-                            draw.text((x + adj_x, y + adj_y), text, font=font, fill=(0, 0, 0))
-                    draw.text((x, y), text, font=font, fill=(255, 255, 255))
+                            draw.text((x + adj_x, y + adj_y), text, font=font, fill=(0, 0, 0, outline_alpha))
+                    draw.text((x, y), text, font=font, fill=(255, 255, 255, outline_alpha))
+                    
+                    # Convert base image to RGBA and composite with overlay
+                    image = image.convert('RGBA')
+                    image = Image.alpha_composite(image, overlay)
+                    image = image.convert('RGB')
                 
                 # Get the preview rectangle from Pibooth to know target size
                 rect = self.get_rect()
@@ -253,12 +263,13 @@ class RpiCamera(BaseCamera):
                 flash_led.on()
 
         self._show_overlay(get_translated_text('smile'), alpha)
-        # Show smile with live preview
-        for _ in range(10):
+        # Show smile with live preview (reduced iterations for faster response)
+        for _ in range(3):
             updated_rect = self._window.show_image(self._get_preview_image())
             pygame.event.pump()
             if updated_rect:
                 pygame.display.update(updated_rect)
+            time.sleep(0.1)  # Small delay to see "smile" message
 
     def preview_wait(self, timeout, alpha=60):
         """Wait the given time while showing live preview.
