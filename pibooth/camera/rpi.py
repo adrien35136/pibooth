@@ -148,7 +148,7 @@ class RpiCamera(BaseCamera):
         self._window.show_image(self._get_preview_image())
     
     def _get_preview_image(self):
-        """Capture and return a PIL preview image."""
+        """Capture and return a PIL preview image resized to fit preview area."""
         if not self._preview_started:
             return None
         
@@ -158,6 +158,14 @@ class RpiCamera(BaseCamera):
             
             # Convert numpy array to PIL Image
             image = Image.fromarray(array)
+            
+            # Get the preview rectangle from Pibooth to know target size
+            rect = self.get_rect()
+            
+            # Resize to fit preview area while keeping aspect ratio
+            from pibooth.pictures import sizing
+            new_size = sizing.new_size_keep_aspect_ratio(image.size, (rect.width, rect.height))
+            image = image.resize(new_size, Image.LANCZOS)
             
             return image
             
