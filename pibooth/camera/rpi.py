@@ -62,12 +62,13 @@ class RpiCamera(BaseCamera):
         self._transform = Transform(hflip=self.capture_flip, vflip=False)
         self._preview_started = False
         self._overlay_cache = {}  # Cache for countdown overlays
+        self._overlay = None  # Current overlay image
         
         # Create configuration with dual streams:
-        # - main: higher resolution RGB for quality preview
+        # - main: medium resolution RGB for quality preview
         # - lores: not used but required by Picamera2
-        # Using 1640x1232 (half of 3280x2464) for good balance between quality and performance
-        preview_resolution = (1640, 1232)
+        # Using 1280x960 (native 4:3 ratio) for optimal balance between quality and performance
+        preview_resolution = (1280, 960)
         self._preview_config = self._cam.create_video_configuration(
             main={"size": preview_resolution, "format": "RGB888"},
             lores={"size": (640, 480), "format": "YUV420"},
@@ -104,7 +105,7 @@ class RpiCamera(BaseCamera):
         from pibooth import fonts
         
         # Create transparent overlay
-        image = Image.new('RGBA', size)
+        image = Image.new('RGBA', size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
         
         # Doubled font size (2x the original annotate_text_size)
@@ -253,29 +254,35 @@ class RpiCamera(BaseCamera):
         while timeout > 0:
             # Create overlay only once per second (not every frame)
             self._show_overlay(timeout, alpha)
-            overlay_image = self._overlay
+            overlay_img = self._overlay
             
-            # Pre-resize overlay once for this second (avoid resizing every frame)
-            # Get a sample frame to know the size
+            # Pre-compute: get sample preview size and resize overlay once
             sample_img = self._get_preview_image()
-            if overlay_image and sample_img:
-                overlay_resized = overlay_image.resize(sample_img.size, Image.BILINEAR)
+            if sample_img and overlay_img:
+                # Resize overlay once per second (not every frame)
+                overlay_resized = overlay_img.resize(sample_img.size, Image.NEAREST)  # NEAREST is fastest
+                # Pre-convert preview to RGBA once (reuse for composite)
+                sample_rgba = sample_img.convert('RGBA')
             else:
                 overlay_resized = None
+                sample_rgba = None
             
             # Update preview with countdown (show multiple frames during 1 second)
             start_time = time.time()
+            frame_count = 0
             while time.time() - start_time < 1.0:
                 preview_img = self._get_preview_image()
-                if overlay_resized and preview_img:
-                    # Composite overlay onto preview (single image display)
-                    preview_img = preview_img.convert('RGBA')
-                    preview_img = Image.alpha_composite(preview_img, overlay_resized)
-                    preview_img = preview_img.convert('RGB')
+                if preview_img and overlay_resized:
+                    # Fast composite: convert preview to RGBA, alpha_composite, convert back to RGB
+                    preview_rgba = preview_img.convert('RGBA')
+                    preview_rgba.alpha_composite(overlay_resized, (0, 0))
+                    preview_img = preview_rgba.convert('RGB')
+                
                 updated_rect = self._window.show_image(preview_img)
                 pygame.event.pump()
                 if updated_rect:
                     pygame.display.update(updated_rect)
+                frame_count += 1
             
             timeout -= 1
             self._hide_overlay()
@@ -286,23 +293,24 @@ class RpiCamera(BaseCamera):
 
         # Create smile overlay once, reuse for all frames
         self._show_overlay(get_translated_text('smile'), alpha)
-        smile_overlay = self._overlay
+        smile_img = self._overlay
         
         # Pre-resize smile overlay once
-        preview_img = self._get_preview_image()
-        if smile_overlay and preview_img:
-            smile_resized = smile_overlay.resize(preview_img.size, Image.BILINEAR)
+        sample_img = self._get_preview_image()
+        if smile_img and sample_img:
+            smile_resized = smile_img.resize(sample_img.size, Image.NEAREST)
         else:
             smile_resized = None
         
-        # Show smile with live preview (reduced iterations for faster response)
+        # Show smile with live preview (optimized compositing)
         for _ in range(5):
             preview_img = self._get_preview_image()
-            if smile_resized and preview_img:
-                # Composite overlay onto preview (single image display)
-                preview_img = preview_img.convert('RGBA')
-                preview_img = Image.alpha_composite(preview_img, smile_resized)
-                preview_img = preview_img.convert('RGB')
+            if preview_img and smile_resized:
+                # Fast composite: in-place alpha_composite
+                preview_rgba = preview_img.convert('RGBA')
+                preview_rgba.alpha_composite(smile_resized, (0, 0))
+                preview_img = preview_rgba.convert('RGB')
+            
             updated_rect = self._window.show_image(preview_img)
             pygame.event.pump()
             if updated_rect:
