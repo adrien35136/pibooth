@@ -53,15 +53,24 @@ class RpiCamera(BaseCamera):
     def _specific_initialization(self):
         """Camera initialization with Picamera2.
         """
-        # Create preview configuration
-        preview_config = self._cam.create_preview_configuration(
-            main={"size": self.resolution, "format": "RGB888"},
-            transform=Transform(
-                hflip=self.capture_flip,
-                vflip=False
-            )
+        # Store configurations for later use
+        self._transform = Transform(hflip=self.capture_flip, vflip=False)
+        self._preview_started = False
+        
+        # Create LOW resolution preview configuration for speed
+        self._preview_config = self._cam.create_preview_configuration(
+            main={"size": (800, 600), "format": "RGB888"},
+            transform=self._transform
         )
-        self._cam.configure(preview_config)
+        
+        # Create HIGH resolution capture configuration
+        self._capture_config = self._cam.create_still_configuration(
+            main={"size": self.resolution, "format": "RGB888"},
+            transform=self._transform
+        )
+        
+        # Start with preview configuration (low res)
+        self._cam.configure(self._preview_config)
         
         # Set controls (ISO → AnalogueGain conversion: gain = iso / 100)
         preview_gain = self.preview_iso / 100.0
@@ -70,10 +79,6 @@ class RpiCamera(BaseCamera):
             "AeEnable": True,  # Auto-exposure
         }
         self._cam.set_controls(controls)
-        
-        # Store original transform for later modifications
-        self._transform = Transform(hflip=self.capture_flip, vflip=False)
-        self._preview_started = False
 
     def _show_overlay(self, text, alpha):
         """Add an image as an overlay using Pygame (Picamera2 doesn't have native overlays).
@@ -227,10 +232,18 @@ class RpiCamera(BaseCamera):
             raise ValueError("Invalid capture effect '{}' (choose among {})".format(effect, self.IMAGE_EFFECTS))
 
         try:
-            # Adjust ISO/gain if needed for capture
-            if self.capture_iso != self.preview_iso:
-                capture_gain = self.capture_iso / 100.0
-                self._cam.set_controls({"AnalogueGain": capture_gain})
+            # Switch to high-resolution capture configuration
+            if self._preview_started:
+                self._cam.stop()
+            self._cam.configure(self._capture_config)
+            self._cam.start()
+            
+            # Adjust ISO/gain for capture
+            capture_gain = self.capture_iso / 100.0
+            self._cam.set_controls({"AnalogueGain": capture_gain})
+            
+            # Brief pause to let camera adjust
+            time.sleep(0.2)
             
             # Capture as numpy array (RGB format)
             array = self._cam.capture_array("main")
@@ -238,16 +251,27 @@ class RpiCamera(BaseCamera):
             # Store capture with effect for post-processing
             self._captures.append((array, effect))
             
+            # Switch back to low-resolution preview configuration
+            self._cam.stop()
+            self._cam.configure(self._preview_config)
+            if self._preview_started:
+                self._cam.start()
+            
             # Restore preview ISO/gain
-            if self.capture_iso != self.preview_iso:
-                preview_gain = self.preview_iso / 100.0
-                self._cam.set_controls({"AnalogueGain": preview_gain})
+            preview_gain = self.preview_iso / 100.0
+            self._cam.set_controls({"AnalogueGain": preview_gain})
                 
         except Exception as e:
             # In case of error, ensure we restore preview settings
-            if self.capture_iso != self.preview_iso:
+            try:
+                self._cam.stop()
+                self._cam.configure(self._preview_config)
+                if self._preview_started:
+                    self._cam.start()
                 preview_gain = self.preview_iso / 100.0
                 self._cam.set_controls({"AnalogueGain": preview_gain})
+            except:
+                pass
             raise e
 
         self._hide_overlay()  # If stop_preview() has not been called
