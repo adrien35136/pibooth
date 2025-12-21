@@ -57,9 +57,10 @@ class RpiCamera(BaseCamera):
         self._transform = Transform(hflip=self.capture_flip, vflip=False)
         self._preview_started = False
         
-        # Create LOW resolution preview configuration for speed
-        self._preview_config = self._cam.create_preview_configuration(
-            main={"size": (800, 600), "format": "RGB888"},
+        # Create preview configuration optimized for video quality
+        # Use video configuration for smoother preview with better AWB/AE
+        self._preview_config = self._cam.create_video_configuration(
+            main={"size": (1640, 1232), "format": "RGB888"},  # Half resolution for speed
             transform=self._transform
         )
         
