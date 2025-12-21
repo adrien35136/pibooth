@@ -6,6 +6,10 @@ import numpy as np
 from io import BytesIO
 from PIL import Image, ImageOps
 try:
+    import cv2
+except ImportError:
+    cv2 = None
+try:
     from picamera2 import Picamera2
     from libcamera import Transform
 except ImportError:
@@ -170,43 +174,20 @@ class RpiCamera(BaseCamera):
             # Use LORES stream for preview (YUV420 format)
             yuv_array = self._cam.capture_array("lores")
             
-            # YUV420 format: array has shape (height * 1.5, width)
-            # First 2/3 is Y plane, last 1/3 is interleaved UV
+            # Convert YUV420 to RGB using OpenCV (fast and optimized)
+            # YUV420 format has shape (height * 1.5, width)
             h = (yuv_array.shape[0] * 2) // 3
             w = yuv_array.shape[1]
             
-            # Extract Y, U, V planes
-            y_plane = yuv_array[:h, :]
-            uv_plane = yuv_array[h:, :]
+            # Reshape to standard YUV420 format for cv2
+            yuv_reshaped = yuv_array[:int(h * 1.5)].reshape((int(h * 1.5), w))
             
-            # Reshape to proper YUV420 structure
-            y = y_plane.reshape((h, w))
-            u = uv_plane[::2, :].reshape((h//2, w//2))
-            v = uv_plane[1::2, :].reshape((h//2, w//2))
-            
-            # Upsample U and V to match Y size
-            u_upsampled = np.repeat(np.repeat(u, 2, axis=0), 2, axis=1)
-            v_upsampled = np.repeat(np.repeat(v, 2, axis=0), 2, axis=1)
-            
-            # Convert YUV to RGB using numpy
-            # Standard YUV to RGB conversion matrix
-            y = y.astype(np.float32)
-            u = u_upsampled.astype(np.float32) - 128
-            v = v_upsampled.astype(np.float32) - 128
-            
-            r = y + 1.402 * v
-            g = y - 0.344136 * u - 0.714136 * v
-            b = y + 1.772 * u
-            
-            # Clip values to 0-255 and stack to RGB
-            rgb = np.stack([
-                np.clip(r, 0, 255).astype(np.uint8),
-                np.clip(g, 0, 255).astype(np.uint8),
-                np.clip(b, 0, 255).astype(np.uint8)
-            ], axis=-1)
+            # Convert YUV420 to BGR, then to RGB
+            bgr = cv2.cvtColor(yuv_reshaped, cv2.COLOR_YUV420p2BGR)
+            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
             
             # Convert to PIL Image
-            image = Image.fromarray(rgb, 'RGB')
+            image = Image.fromarray(rgb)
             
             # Get the preview rectangle from Pibooth to know target size
             rect = self.get_rect()
