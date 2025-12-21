@@ -188,16 +188,16 @@ class RpiCamera(BaseCamera):
             
             preview_surface = pygame.image.fromstring(data, size, mode)
             
-            # Get window surface and draw
-            surface = self._window.get_surface()
+            # Get window surface and draw (PiWindow has public 'surface' attribute)
+            surface = self._window.surface
             surface.blit(preview_surface, rect.topleft)
             
             # Draw overlay text if present
             if self._overlay:
                 self._draw_overlay_on_surface(surface, rect)
             
-            # Update the display through Pibooth's window
-            self._window.show_image(surface)
+            # Update the display
+            pygame.display.update()
             
         except Exception as e:
             # Log errors for debugging
