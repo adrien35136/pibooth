@@ -12,21 +12,17 @@ from pibooth.utils import LOGGER
 
 
 def get_rpi_camera_proxy(port=None):
-    """Return Picamera2 instance if a camera is available."""
+    """Return True if a Raspberry Pi camera is available."""
     try:
-        cams = Picamera2.global_camera_info()
-        if not cams:
-            return None
-        return Picamera2(port) if port is not None else Picamera2()
+        return bool(Picamera2.global_camera_info())
     except Exception:
-        return None
+        return False
 
 
 class RpiCamera(BaseCamera):
     """
     Raspberry Pi Camera backend using Picamera2.
-    Preview is handled by GPU using EGL.
-    Overlays and countdown are drawn with pygame.
+    GPU preview via EGL + pygame overlays (compatible Pibooth).
     """
 
     IMAGE_EFFECTS = ['none']
@@ -36,8 +32,12 @@ class RpiCamera(BaseCamera):
     # ------------------------------------------------------------------
 
     def _specific_initialization(self):
-        # IMPORTANT: Pibooth already injected the camera instance
-        self._cam = self._camera
+        LOGGER.info("Initializing Picamera2 backend")
+
+        # IMPORTANT:
+        # Pibooth does NOT inject the camera instance.
+        # We must create Picamera2 ourselves.
+        self._cam = Picamera2()
 
         self._preview_started = False
         self._window = None
@@ -48,7 +48,6 @@ class RpiCamera(BaseCamera):
             vflip=False
         )
 
-        # GPU preview configuration (NO frame access in Python)
         self._preview_config = self._cam.create_preview_configuration(
             main={
                 "size": (1280, 960),
@@ -67,7 +66,6 @@ class RpiCamera(BaseCamera):
     # ------------------------------------------------------------------
 
     def preview(self, window, flip=True):
-        """Start GPU preview and initialize pygame overlay."""
         self._window = window
         self.preview_flip = flip
 
@@ -80,14 +78,12 @@ class RpiCamera(BaseCamera):
             self._cam.start_preview(Preview.EGL)
             self._cam.start()
             self._preview_started = True
-            time.sleep(0.5)  # AE/AWB warmup
+            time.sleep(0.5)  # AE / AWB warmup
 
-        # Transparent overlay surface for countdown/text
         size = self._window.get_rect().size
         self._overlay_surface = pygame.Surface(size, pygame.SRCALPHA)
 
     def stop_preview(self):
-        """Stop GPU preview."""
         if self._preview_started:
             LOGGER.info("Stopping Picamera2 preview")
             self._cam.stop_preview()
@@ -102,7 +98,6 @@ class RpiCamera(BaseCamera):
     # ------------------------------------------------------------------
 
     def _draw_overlay(self, text, alpha=180):
-        """Draw centered overlay text using pygame."""
         if not self._window or not self._overlay_surface:
             return
 
@@ -131,7 +126,6 @@ class RpiCamera(BaseCamera):
     # ------------------------------------------------------------------
 
     def preview_countdown(self, timeout, alpha=180, flash_led=None):
-        """Display countdown overlay while preview runs on GPU."""
         timeout = int(timeout)
         if timeout < 1:
             raise ValueError("Timeout must be >= 1")
@@ -147,7 +141,6 @@ class RpiCamera(BaseCamera):
         self._clear_overlay()
 
     def preview_wait(self, timeout, alpha=180):
-        """Wait with 'smile' overlay."""
         start = time.time()
         self._draw_overlay(get_translated_text("smile"), alpha)
         while time.time() - start < timeout:
@@ -156,14 +149,10 @@ class RpiCamera(BaseCamera):
         self._clear_overlay()
 
     # ------------------------------------------------------------------
-    # CAPTURE (fallback)
+    # CAPTURE (fallback Picamera2)
     # ------------------------------------------------------------------
 
     def capture(self, effect=None):
-        """
-        Capture a still image using Picamera2.
-        In production, prefer Canon + gphoto2.
-        """
         try:
             array = self._cam.switch_mode_and_capture_array(
                 self._cam.create_still_configuration(
@@ -180,7 +169,6 @@ class RpiCamera(BaseCamera):
     # ------------------------------------------------------------------
 
     def quit(self):
-        """Close camera definitively."""
         try:
             if self._preview_started:
                 self._cam.stop_preview()
