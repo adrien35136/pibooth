@@ -24,12 +24,14 @@ def get_rpi_camera_proxy(port=None):
 class RpiCamera(BaseCamera):
     """
     Raspberry Pi Camera backend using Picamera2.
-    Preview is handled natively by GPU (QTGL).
+    Preview handled natively by GPU (DRM/EGL/QTGL).
+    Overlays (countdown) drawn via PyGame above preview window.
     """
 
     IMAGE_EFFECTS = ['none']
 
     def _specific_initialization(self):
+        """Initialize camera and preview configuration."""
         self._preview_started = False
         self._window = None
         self._overlay_surface = None
@@ -39,21 +41,26 @@ class RpiCamera(BaseCamera):
             vflip=False
         )
 
-        # GPU preview configuration
+        # GPU preview configuration (fast & smooth)
         self._preview_config = self._cam.create_preview_configuration(
-            main={"size": (1280, 960), "format": "YUV420"},
+            main={
+                "size": (1280, 960),
+                "format": "YUV420"  # GPU friendly
+            },
             transform=self._transform,
-            controls={"FrameRate": 30}
+            controls={
+                "FrameRate": 30
+            }
         )
 
         self._cam.configure(self._preview_config)
 
     # ------------------------------------------------------------------
-    # PREVIEW (GPU)
+    # PREVIEW
     # ------------------------------------------------------------------
 
     def preview(self, window, flip=True):
-        """Start GPU preview and prepare pygame overlay."""
+        """Start GPU preview and prepare overlay."""
         self._window = window
         self.preview_flip = flip
 
@@ -74,12 +81,12 @@ class RpiCamera(BaseCamera):
             self._preview_started = True
             time.sleep(0.5)  # AWB / AE warmup
 
-        # Create overlay surface once
+        # Prepare overlay surface (transparent) same size as window
         size = self._window.get_rect().size
         self._overlay_surface = pygame.Surface(size, pygame.SRCALPHA)
 
     def stop_preview(self):
-        """Stop GPU preview."""
+        """Stop GPU preview and remove overlay."""
         if self._preview_started:
             LOGGER.info("Stopping Picamera2 preview")
             self._cam.stop_preview()
@@ -90,33 +97,33 @@ class RpiCamera(BaseCamera):
         self._window = None
 
     # ------------------------------------------------------------------
-    # OVERLAYS (pygame only)
+    # OVERLAYS
     # ------------------------------------------------------------------
 
     def _draw_overlay(self, text, alpha=180):
-        """Draw centered overlay text using pygame."""
+        """Draw centered overlay text above preview using PyGame."""
         if not self._window or not self._overlay_surface:
             return
 
         # Clear overlay
         self._overlay_surface.fill((0, 0, 0, 0))
 
+        # Draw text
         font_size = int(self._overlay_surface.get_width() * 0.35)
         font = pygame.font.Font(None, font_size)
-
         label = font.render(str(text), True, (255, 255, 255))
         label.set_alpha(alpha)
-
         rect = label.get_rect(center=self._overlay_surface.get_rect().center)
         self._overlay_surface.blit(label, rect)
 
+        # Blit overlay above the preview window
         self._window.surface.blit(self._overlay_surface, (0, 0))
-        pygame.display.flip()
+        pygame.display.flip()  # Update entire window
 
     def _clear_overlay(self):
+        """Remove overlay text."""
         if self._overlay_surface and self._window:
             self._overlay_surface.fill((0, 0, 0, 0))
-            self._window.surface.fill((0, 0, 0))
             self._window.surface.blit(self._overlay_surface, (0, 0))
             pygame.display.flip()
 
@@ -125,19 +132,13 @@ class RpiCamera(BaseCamera):
     # ------------------------------------------------------------------
 
     def preview_countdown(self, timeout, alpha=180, flash_led=None):
-        """
-        Smooth countdown overlay (like Picamera v1).
-        timeout : seconds
-        alpha : overlay transparency
-        flash_led : optional LED to flash at last second
-        """
+        """Smooth countdown overlay above GPU preview."""
         if not self._preview_started:
             raise RuntimeError("Preview must be started before countdown")
 
         start_time = time.time()
         end_time = start_time + timeout
         last_number = None
-
         fps = 25.0
         frame_time = 1.0 / fps
 
@@ -147,19 +148,19 @@ class RpiCamera(BaseCamera):
             if remaining <= 0:
                 break
 
-            number = int(remaining) + 1  # Ce chiffre descend de timeout -> 1
+            number = int(remaining) + 1
             if number != last_number:
                 self._draw_overlay(number, alpha)
                 last_number = number
 
-            # Flash LED à 2 secondes restantes
+            # Flash LED at 2 seconds remaining
             if flash_led and int(remaining) + 1 == 2:
                 flash_led.on()
 
             pygame.event.pump()
             time.sleep(frame_time)
 
-        # Smile overlay à la fin
+        # Show smile overlay at end
         self._draw_overlay(get_translated_text("smile"), alpha)
         time.sleep(0.5)
         self._clear_overlay()
@@ -178,7 +179,10 @@ class RpiCamera(BaseCamera):
     # ------------------------------------------------------------------
 
     def capture(self, effect=None):
-        """Capture using Picamera2 (fallback)."""
+        """
+        Capture using Picamera2 fallback.
+        For production: prefer Canon + gphoto2.
+        """
         try:
             array = self._cam.switch_mode_and_capture_array(
                 self._cam.create_still_configuration(
