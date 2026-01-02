@@ -95,11 +95,17 @@ class PiWindow(object):
             image = buff_image
         else:
             if resize:
-                image = pil_image.resize(sizing.new_size_keep_aspect_ratio(
+                pil_image_to_convert = pil_image.resize(sizing.new_size_keep_aspect_ratio(
                     pil_image.size, image_size_max), Image.LANCZOS)
             else:
-                image = pil_image
-            image = pygame.image.frombuffer(image.tobytes(), image.size, image.mode)
+                pil_image_to_convert = pil_image
+            
+            # Ensure we have a PIL Image before calling tobytes()
+            if isinstance(pil_image_to_convert, pygame.Surface):
+                # If somehow a pygame Surface was passed, handle gracefully
+                image = pil_image_to_convert
+            else:
+                image = pygame.image.frombuffer(pil_image_to_convert.tobytes(), pil_image_to_convert.size, pil_image_to_convert.mode)
             if self._current_foreground:
                 self._buffered_images.pop(id(self._current_foreground[0]), None)
             LOGGER.debug("Add to buffer the image '%s'", image_name)
