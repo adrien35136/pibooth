@@ -2,6 +2,7 @@
 
 import time
 import pygame
+
 from picamera2 import Picamera2, Preview
 from libcamera import Transform
 
@@ -24,12 +25,18 @@ def get_rpi_camera_proxy(port=None):
 class RpiCamera(BaseCamera):
     """
     Raspberry Pi Camera backend using Picamera2.
-    Preview is handled natively by GPU (DRM/EGL).
+    Preview is handled by GPU using EGL.
+    Overlays and countdown are drawn with pygame.
     """
 
     IMAGE_EFFECTS = ['none']
 
+    # ------------------------------------------------------------------
+    # INITIALIZATION
+    # ------------------------------------------------------------------
+
     def _specific_initialization(self):
+        self._cam = self._proxy
         self._preview_started = False
         self._window = None
         self._overlay_surface = None
@@ -39,11 +46,11 @@ class RpiCamera(BaseCamera):
             vflip=False
         )
 
-        # GPU preview configuration (NO Python image access)
+        # GPU preview configuration (NO frame access in Python)
         self._preview_config = self._cam.create_preview_configuration(
             main={
-                "size": (1280, 960),      # preview quality
-                "format": "YUV420"        # fast / GPU friendly
+                "size": (1280, 960),
+                "format": "YUV420"
             },
             transform=self._transform,
             controls={
@@ -54,11 +61,11 @@ class RpiCamera(BaseCamera):
         self._cam.configure(self._preview_config)
 
     # ------------------------------------------------------------------
-    # PREVIEW (GPU)
+    # PREVIEW (GPU – EGL)
     # ------------------------------------------------------------------
 
     def preview(self, window, flip=True):
-        """Start GPU preview and prepare pygame overlay."""
+        """Start GPU preview and initialize pygame overlay."""
         self._window = window
         self.preview_flip = flip
 
@@ -67,13 +74,13 @@ class RpiCamera(BaseCamera):
         self._cam.configure(self._preview_config)
 
         if not self._preview_started:
-            LOGGER.info("Starting Picamera2 EGL preview")
-            self._cam.start_preview(Preview.QTGL, x=0, y=0, width=window.surface.get_width(), height=window.surface.get_height())
+            LOGGER.info("Starting Picamera2 preview (EGL)")
+            self._cam.start_preview(Preview.EGL)
             self._cam.start()
             self._preview_started = True
-            time.sleep(0.5)  # AWB / AE warmup
+            time.sleep(0.5)  # AE/AWB warmup
 
-        # Create transparent overlay surface once
+        # Transparent overlay surface for countdown/text
         size = self._window.get_rect().size
         self._overlay_surface = pygame.Surface(size, pygame.SRCALPHA)
 
@@ -89,7 +96,7 @@ class RpiCamera(BaseCamera):
         self._window = None
 
     # ------------------------------------------------------------------
-    # OVERLAYS (pygame only – NO camera access)
+    # OVERLAY (pygame only)
     # ------------------------------------------------------------------
 
     def _draw_overlay(self, text, alpha=180):
@@ -97,9 +104,7 @@ class RpiCamera(BaseCamera):
         if not self._window or not self._overlay_surface:
             return
 
-        # Effacer complètement la surface pygame ET l'écran
-        self._window.surface.fill((0, 0, 0))  # Fond noir pour masquer le texte précédent
-        self._overlay_surface.fill((0, 0, 0, 0))  # Overlay transparent
+        self._overlay_surface.fill((0, 0, 0, 0))
 
         font_size = int(self._overlay_surface.get_width() * 0.35)
         font = pygame.font.Font(None, font_size)
@@ -111,21 +116,20 @@ class RpiCamera(BaseCamera):
         self._overlay_surface.blit(label, rect)
 
         self._window.surface.blit(self._overlay_surface, (0, 0))
-        pygame.display.flip()  # Utiliser flip() au lieu de update() pour un rafraîchissement complet
+        pygame.display.update()
 
     def _clear_overlay(self):
         if self._overlay_surface and self._window:
-            self._window.surface.fill((0, 0, 0))  # Effacer l'écran
             self._overlay_surface.fill((0, 0, 0, 0))
             self._window.surface.blit(self._overlay_surface, (0, 0))
-            pygame.display.flip()  # Rafraîchissement complet
+            pygame.display.update()
 
     # ------------------------------------------------------------------
     # COUNTDOWN
     # ------------------------------------------------------------------
 
     def preview_countdown(self, timeout, alpha=180, flash_led=None):
-        """Countdown overlay (camera runs independently on GPU)."""
+        """Display countdown overlay while preview runs on GPU."""
         timeout = int(timeout)
         if timeout < 1:
             raise ValueError("Timeout must be >= 1")
@@ -141,7 +145,7 @@ class RpiCamera(BaseCamera):
         self._clear_overlay()
 
     def preview_wait(self, timeout, alpha=180):
-        """Show smile overlay while waiting."""
+        """Wait with 'smile' overlay."""
         start = time.time()
         self._draw_overlay(get_translated_text("smile"), alpha)
         while time.time() - start < timeout:
@@ -150,13 +154,13 @@ class RpiCamera(BaseCamera):
         self._clear_overlay()
 
     # ------------------------------------------------------------------
-    # CAPTURE
+    # CAPTURE (fallback)
     # ------------------------------------------------------------------
 
     def capture(self, effect=None):
         """
-        Capture using Picamera2 (fallback).
-        For production: prefer Canon + gphoto2.
+        Capture a still image using Picamera2.
+        In production, prefer Canon + gphoto2.
         """
         try:
             array = self._cam.switch_mode_and_capture_array(
@@ -168,6 +172,10 @@ class RpiCamera(BaseCamera):
         except Exception as e:
             LOGGER.error(f"Capture failed: {e}")
             raise
+
+    # ------------------------------------------------------------------
+    # CLEANUP
+    # ------------------------------------------------------------------
 
     def quit(self):
         """Close camera definitively."""
