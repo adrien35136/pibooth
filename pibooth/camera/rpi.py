@@ -1,178 +1,119 @@
 # -*- coding: utf-8 -*-
 
 import time
-import pygame
-
 from picamera2 import Picamera2, Preview
 from libcamera import Transform
-
+from PIL import Image
 from pibooth.camera.base import BaseCamera
-from pibooth.language import get_translated_text
 from pibooth.utils import LOGGER
 
 
 def get_rpi_camera_proxy(port=None):
-    """Return True if a Raspberry Pi camera is available."""
+    """Return Picamera2 instance if a camera is available."""
     try:
-        return bool(Picamera2.global_camera_info())
+        cameras = Picamera2.global_camera_info()
+        if not cameras:
+            return None
+        if port is not None and port < len(cameras):
+            return Picamera2(port)
+        return Picamera2()
     except Exception:
-        return False
+        return None
 
 
 class RpiCamera(BaseCamera):
-    """
-    Raspberry Pi Camera backend using Picamera2.
-    GPU preview via EGL + pygame overlays (compatible Pibooth).
-    """
+    """Raspberry Pi Camera backend using Picamera2 + QTGL preview"""
 
     IMAGE_EFFECTS = ['none']
-
-    # ------------------------------------------------------------------
-    # INITIALIZATION
-    # ------------------------------------------------------------------
 
     def _specific_initialization(self):
         LOGGER.info("Initializing Picamera2 backend")
 
-        # IMPORTANT:
-        # Pibooth does NOT inject the camera instance.
-        # We must create Picamera2 ourselves.
-        self._cam = Picamera2()
+        # Create camera
+        self._camera = get_rpi_camera_proxy()
+        if self._camera is None:
+            raise EnvironmentError("No Raspberry Pi camera detected")
 
+        self._preview = None
         self._preview_started = False
-        self._window = None
-        self._overlay_surface = None
 
-        self._transform = Transform(
-            hflip=self.capture_flip,
-            vflip=False
-        )
+        # Transform (flip)
+        transform = Transform(hflip=self.capture_flip, vflip=False)
 
-        self._preview_config = self._cam.create_preview_configuration(
+        # Preview config (LOW RES, GPU FAST)
+        self._preview_config = self._camera.create_preview_configuration(
             main={
                 "size": (1280, 960),
                 "format": "YUV420"
             },
-            transform=self._transform,
-            controls={
-                "FrameRate": 30
-            }
+            transform=transform
         )
 
-        self._cam.configure(self._preview_config)
+        # Capture config (FULL SENSOR)
+        self._capture_config = self._camera.create_still_configuration(
+            transform=transform
+        )
 
-    # ------------------------------------------------------------------
-    # PREVIEW (GPU – EGL)
-    # ------------------------------------------------------------------
+        self._camera.configure(self._preview_config)
+        self._camera.start()
+        time.sleep(1.5)  # AWB / AE warmup
+
+    # ---------------------------------------------------------------------
 
     def preview(self, window, flip=True):
+        """Start GPU preview (QTGL)."""
         self._window = window
-        self.preview_flip = flip
-
-        self._transform = Transform(hflip=flip, vflip=False)
-        self._preview_config["transform"] = self._transform
-        self._cam.configure(self._preview_config)
 
         if not self._preview_started:
-            LOGGER.info("Starting Picamera2 preview (EGL)")
-            self._cam.start_preview("egl")
-            self._cam.start()
+            LOGGER.info("Starting Picamera2 preview (QTGL)")
+            self._preview = self._camera.start_preview(Preview.QTGL)
             self._preview_started = True
-            time.sleep(0.5)  # AE / AWB warmup
 
-        size = self._window.get_rect().size
-        self._overlay_surface = pygame.Surface(size, pygame.SRCALPHA)
+    def preview_wait(self, timeout, alpha=60):
+        """Let preview run while waiting."""
+        time.sleep(timeout)
+
+    def preview_countdown(self, timeout, alpha=60, flash_led=None):
+        """Countdown handled by pygame (NOT camera)."""
+        timeout = int(timeout)
+        if timeout < 1:
+            return
+
+        while timeout > 0:
+            self._window.show_countdown(timeout)
+            time.sleep(1)
+            timeout -= 1
+
+        self._window.show_smile()
+        time.sleep(0.5)
 
     def stop_preview(self):
         if self._preview_started:
-            LOGGER.info("Stopping Picamera2 preview")
-            self._cam.stop_preview()
-            self._cam.stop()
+            self._camera.stop_preview()
             self._preview_started = False
-
-        self._overlay_surface = None
         self._window = None
 
-    # ------------------------------------------------------------------
-    # OVERLAY (pygame only)
-    # ------------------------------------------------------------------
-
-    def _draw_overlay(self, text, alpha=180):
-        if not self._window or not self._overlay_surface:
-            return
-
-        self._overlay_surface.fill((0, 0, 0, 0))
-
-        font_size = int(self._overlay_surface.get_width() * 0.35)
-        font = pygame.font.Font(None, font_size)
-
-        label = font.render(str(text), True, (255, 255, 255))
-        label.set_alpha(alpha)
-
-        rect = label.get_rect(center=self._overlay_surface.get_rect().center)
-        self._overlay_surface.blit(label, rect)
-
-        self._window.surface.blit(self._overlay_surface, (0, 0))
-        pygame.display.update()
-
-    def _clear_overlay(self):
-        if self._overlay_surface and self._window:
-            self._overlay_surface.fill((0, 0, 0, 0))
-            self._window.surface.blit(self._overlay_surface, (0, 0))
-            pygame.display.update()
-
-    # ------------------------------------------------------------------
-    # COUNTDOWN
-    # ------------------------------------------------------------------
-
-    def preview_countdown(self, timeout, alpha=180, flash_led=None):
-        timeout = int(timeout)
-        if timeout < 1:
-            raise ValueError("Timeout must be >= 1")
-
-        for i in range(timeout, 0, -1):
-            self._draw_overlay(i, alpha)
-            if i == 2 and flash_led:
-                flash_led.on()
-            time.sleep(1)
-
-        self._draw_overlay(get_translated_text("smile"), alpha)
-        time.sleep(0.5)
-        self._clear_overlay()
-
-    def preview_wait(self, timeout, alpha=180):
-        start = time.time()
-        self._draw_overlay(get_translated_text("smile"), alpha)
-        while time.time() - start < timeout:
-            pygame.event.pump()
-            time.sleep(0.05)
-        self._clear_overlay()
-
-    # ------------------------------------------------------------------
-    # CAPTURE (fallback Picamera2)
-    # ------------------------------------------------------------------
+    # ---------------------------------------------------------------------
 
     def capture(self, effect=None):
-        try:
-            array = self._cam.switch_mode_and_capture_array(
-                self._cam.create_still_configuration(
-                    main={"size": (4056, 3040)}
-                )
-            )
-            self._captures.append((array, 'none'))
-        except Exception as e:
-            LOGGER.error(f"Capture failed: {e}")
-            raise
+        """Capture full-resolution image."""
+        self._camera.stop()
+        self._camera.configure(self._capture_config)
+        self._camera.start()
 
-    # ------------------------------------------------------------------
-    # CLEANUP
-    # ------------------------------------------------------------------
+        array = self._camera.capture_array("main")
+        image = Image.fromarray(array)
+        self._captures.append((image, effect))
+
+        # Restore preview
+        self._camera.stop()
+        self._camera.configure(self._preview_config)
+        self._camera.start()
+
+    # ---------------------------------------------------------------------
 
     def quit(self):
-        try:
-            if self._preview_started:
-                self._cam.stop_preview()
-                self._cam.stop()
-            self._cam.close()
-        except Exception:
-            pass
+        if self._preview_started:
+            self._camera.stop_preview()
+        self._camera.stop()
+        self._camera.close()
