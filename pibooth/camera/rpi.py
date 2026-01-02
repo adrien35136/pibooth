@@ -75,7 +75,7 @@ class RpiCamera(BaseCamera):
 
         if not self._preview_started:
             LOGGER.info("Starting Picamera2 preview (EGL)")
-            self._cam.start_preview(Preview.EGL)
+            self._cam.start_preview("egl")
             self._cam.start()
             self._preview_started = True
             time.sleep(0.5)  # AE / AWB warmup
