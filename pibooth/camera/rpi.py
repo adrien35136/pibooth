@@ -46,7 +46,7 @@ class RpiCamera(BaseCamera):
         self._overlay_cache = {}
         self._overlay = None
         
-        # Keep preview at full resolution 1280x960
+        # Preview full resolution 1280x960
         preview_resolution = (1280, 960)
         self._preview_config = self._cam.create_video_configuration(
             main={"size": preview_resolution, "format": "RGB888"},
@@ -128,7 +128,7 @@ class RpiCamera(BaseCamera):
         if not self._preview_started:
             self._cam.start()
             self._preview_started = True
-            time.sleep(0.5)  # Warmup
+            time.sleep(0.5)
         self._window.show_image(self._get_preview_image())
 
     def _get_preview_image(self):
@@ -139,7 +139,6 @@ class RpiCamera(BaseCamera):
             req = self._cam.capture_request()
             try:
                 array = req.make_array("main")  # RGB888 numpy array
-                # Direct conversion to pygame Surface without PIL
                 surf = pygame.surfarray.make_surface(array.swapaxes(0,1))
                 return surf
             finally:
@@ -160,9 +159,16 @@ class RpiCamera(BaseCamera):
             self._show_overlay(timeout, alpha)
             overlay_img = self._overlay
             preview_img = self._get_preview_image()
-            if overlay_img and preview_img:
+
+            # Convert PIL overlay to pygame.Surface if nécessaire
+            if overlay_img:
                 if timeout not in overlay_cache_surf:
-                    overlay_cache_surf[timeout] = pygame.image.frombuffer(overlay_img.tobytes(), overlay_img.size, 'RGBA')
+                    if isinstance(overlay_img, Image.Image):
+                        overlay_cache_surf[timeout] = pygame.image.frombuffer(
+                            overlay_img.tobytes(), overlay_img.size, 'RGBA'
+                        )
+                    else:
+                        overlay_cache_surf[timeout] = overlay_img
                 overlay_surf = overlay_cache_surf[timeout]
             else:
                 overlay_surf = None
@@ -191,11 +197,14 @@ class RpiCamera(BaseCamera):
         self._show_overlay(get_translated_text('smile'), alpha)
         smile_img = self._overlay
         preview_img = self._get_preview_image()
-        if smile_img and preview_img:
-            smile_surf = pygame.image.frombuffer(smile_img.tobytes(), smile_img.size, 'RGBA')
+        if smile_img:
+            if isinstance(smile_img, Image.Image):
+                smile_surf = pygame.image.frombuffer(smile_img.tobytes(), smile_img.size, 'RGBA')
+            else:
+                smile_surf = smile_img
             for _ in range(5):
                 preview_img = self._get_preview_image()
-                if preview_img:
+                if preview_img and smile_surf:
                     preview_img.blit(smile_surf, (0,0))
                     updated_rect = self._window.show_image(preview_img)
                     pygame.event.pump()
