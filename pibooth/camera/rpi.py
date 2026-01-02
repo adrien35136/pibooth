@@ -2,8 +2,8 @@
 
 import time
 import threading
-import numpy as np
 import pygame
+from PIL import Image
 from picamera2 import Picamera2
 from libcamera import Transform
 
@@ -64,14 +64,20 @@ class RpiCamera(BaseCamera):
 
     def _preview_loop(self):
         """Background thread that continuously updates the preview."""
+        LOGGER.info("Preview loop started")
         while self._preview_running:
             try:
                 # Capture a frame from the camera
                 array = self._cam.capture_array("main")
                 
-                # Convert numpy array to pygame surface
-                # array is RGB888, shape (H, W, 3)
-                surface = pygame.surfarray.make_surface(np.rot90(array, k=-1))
+                # Convert numpy array (H, W, 3) to PIL Image
+                pil_image = Image.fromarray(array, mode='RGB')
+                
+                # Convert PIL Image to pygame surface
+                mode = pil_image.mode
+                size = pil_image.size
+                data = pil_image.tobytes()
+                surface = pygame.image.fromstring(data, size, mode)
                 
                 # Scale to fit the window
                 if self._window:
@@ -88,11 +94,14 @@ class RpiCamera(BaseCamera):
                     pygame.display.update()
                     
             except Exception as e:
-                LOGGER.debug(f"Preview frame error: {e}")
+                LOGGER.error(f"Preview frame error: {e}")
                 time.sleep(0.033)  # ~30 FPS fallback
+        
+        LOGGER.info("Preview loop stopped")
                 
     def preview(self, window, flip=True):
         """Start software preview with pygame."""
+        LOGGER.info(f"Setting up preview - window: {window}, flip: {flip}")
         self._window = window
         self.preview_flip = flip
 
@@ -108,12 +117,14 @@ class RpiCamera(BaseCamera):
 
         # Create transparent overlay surface once
         size = self._window.get_rect().size
+        LOGGER.info(f"Window size: {size}")
         self._overlay_surface = pygame.Surface(size, pygame.SRCALPHA)
         
         # Start preview thread
         self._preview_running = True
         self._preview_thread = threading.Thread(target=self._preview_loop, daemon=True)
         self._preview_thread.start()
+        LOGGER.info("Preview thread started")
 
     def stop_preview(self):
         """Stop software preview."""
@@ -137,7 +148,9 @@ class RpiCamera(BaseCamera):
 
     def _draw_overlay(self, text, alpha=180):
         """Draw centered overlay text using pygame."""
+        LOGGER.debug(f"Drawing overlay: {text}")
         if not self._window or not self._overlay_surface:
+            LOGGER.warning("Cannot draw overlay - window or surface missing")
             return
 
         # Clear the overlay
