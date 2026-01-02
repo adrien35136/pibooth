@@ -36,7 +36,9 @@ class RpiCamera(BaseCamera):
     # ------------------------------------------------------------------
 
     def _specific_initialization(self):
-        self._cam = self._proxy
+        # IMPORTANT: Pibooth already injected the camera instance
+        self._cam = self._camera
+
         self._preview_started = False
         self._window = None
         self._overlay_surface = None
