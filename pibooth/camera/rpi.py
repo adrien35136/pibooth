@@ -139,11 +139,7 @@ class RpiCamera(BaseCamera):
             req = self._cam.capture_request()
             try:
                 array = req.make_array("main")  # RGB888 numpy array
-                rect = self.get_rect()
-                if array.shape[1] != rect.width or array.shape[0] != rect.height:
-                    # Resize only if rect is different from camera size
-                    import cv2
-                    array = cv2.resize(array, (rect.width, rect.height), interpolation=cv2.INTER_LINEAR)
+                # Direct conversion to pygame Surface without PIL
                 surf = pygame.surfarray.make_surface(array.swapaxes(0,1))
                 return surf
             finally:
@@ -159,17 +155,17 @@ class RpiCamera(BaseCamera):
         if timeout < 1 or not self._preview_started:
             return
 
-        overlay_resized_cache = {}
+        overlay_cache_surf = {}
         while timeout > 0:
             self._show_overlay(timeout, alpha)
             overlay_img = self._overlay
-            sample_img = self._get_preview_image()
-            if overlay_img and sample_img:
-                if timeout not in overlay_resized_cache:
-                    overlay_resized_cache[timeout] = pygame.image.fromstring(
+            preview_img = self._get_preview_image()
+            if overlay_img and preview_img:
+                if timeout not in overlay_cache_surf:
+                    overlay_cache_surf[timeout] = pygame.image.fromstring(
                         overlay_img.tobytes(), overlay_img.size, overlay_img.mode
                     )
-                overlay_surf = overlay_resized_cache[timeout]
+                overlay_surf = overlay_cache_surf[timeout]
             else:
                 overlay_surf = None
 
@@ -187,6 +183,7 @@ class RpiCamera(BaseCamera):
                 elapsed = time.time() - start_time
                 if elapsed < frame_time:
                     time.sleep(frame_time - elapsed)
+
             timeout -= 1
             self._hide_overlay()
             if timeout == 1 and flash_led:
@@ -195,8 +192,8 @@ class RpiCamera(BaseCamera):
         # Show smile overlay
         self._show_overlay(get_translated_text('smile'), alpha)
         smile_img = self._overlay
-        sample_img = self._get_preview_image()
-        if smile_img and sample_img:
+        preview_img = self._get_preview_image()
+        if smile_img and preview_img:
             smile_surf = pygame.image.fromstring(smile_img.tobytes(), smile_img.size, smile_img.mode)
             for _ in range(5):
                 preview_img = self._get_preview_image()
