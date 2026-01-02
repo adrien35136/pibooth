@@ -30,7 +30,6 @@ class RpiCamera(BaseCamera):
     IMAGE_EFFECTS = ['none']
 
     def _specific_initialization(self):
-        self._cam = self._proxy
         self._preview_started = False
         self._window = None
         self._overlay_surface = None
