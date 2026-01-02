@@ -1,46 +1,37 @@
 # -*- coding: utf-8 -*-
 
 import time
-from picamera2 import Picamera2, Preview
+from picamera2 import Preview
 from libcamera import Transform
 from PIL import Image
 from pibooth.camera.base import BaseCamera
 from pibooth.utils import LOGGER
 
 
-def get_rpi_camera_proxy(port=None):
-    """Return Picamera2 instance if a camera is available."""
-    try:
-        cameras = Picamera2.global_camera_info()
-        if not cameras:
-            return None
-        if port is not None and port < len(cameras):
-            return Picamera2(port)
-        return Picamera2()
-    except Exception:
-        return None
-
-
 class RpiCamera(BaseCamera):
-    """Raspberry Pi Camera backend using Picamera2 + QTGL preview"""
+    """
+    Raspberry Pi Camera backend for pibooth
+    using Picamera2 + QTGL GPU preview
+    """
 
     IMAGE_EFFECTS = ['none']
 
     def _specific_initialization(self):
         LOGGER.info("Initializing Picamera2 backend")
 
-        # Create camera
-        self._camera = get_rpi_camera_proxy()
+        # IMPORTANT:
+        # Picamera2 instance is ALREADY created by pibooth
+        # and stored in self._proxy
+        self._camera = self._proxy
         if self._camera is None:
             raise EnvironmentError("No Raspberry Pi camera detected")
 
         self._preview = None
         self._preview_started = False
 
-        # Transform (flip)
         transform = Transform(hflip=self.capture_flip, vflip=False)
 
-        # Preview config (LOW RES, GPU FAST)
+        # Preview config (FAST, GPU)
         self._preview_config = self._camera.create_preview_configuration(
             main={
                 "size": (1280, 960),
@@ -49,16 +40,18 @@ class RpiCamera(BaseCamera):
             transform=transform
         )
 
-        # Capture config (FULL SENSOR)
+        # Capture config (FULL RES SENSOR)
         self._capture_config = self._camera.create_still_configuration(
             transform=transform
         )
 
         self._camera.configure(self._preview_config)
         self._camera.start()
-        time.sleep(1.5)  # AWB / AE warmup
 
-    # ---------------------------------------------------------------------
+        # Let AE / AWB stabilize
+        time.sleep(1.5)
+
+    # ------------------------------------------------------------------
 
     def preview(self, window, flip=True):
         """Start GPU preview (QTGL)."""
@@ -74,7 +67,7 @@ class RpiCamera(BaseCamera):
         time.sleep(timeout)
 
     def preview_countdown(self, timeout, alpha=60, flash_led=None):
-        """Countdown handled by pygame (NOT camera)."""
+        """Countdown drawn by pygame (NOT camera)."""
         timeout = int(timeout)
         if timeout < 1:
             return
@@ -93,10 +86,10 @@ class RpiCamera(BaseCamera):
             self._preview_started = False
         self._window = None
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     def capture(self, effect=None):
-        """Capture full-resolution image."""
+        """Capture full resolution image."""
         self._camera.stop()
         self._camera.configure(self._capture_config)
         self._camera.start()
@@ -110,7 +103,7 @@ class RpiCamera(BaseCamera):
         self._camera.configure(self._preview_config)
         self._camera.start()
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     def quit(self):
         if self._preview_started:
