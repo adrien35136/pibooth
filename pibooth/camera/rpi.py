@@ -162,9 +162,7 @@ class RpiCamera(BaseCamera):
             preview_img = self._get_preview_image()
             if overlay_img and preview_img:
                 if timeout not in overlay_cache_surf:
-                    overlay_cache_surf[timeout] = pygame.image.fromstring(
-                        overlay_img.tobytes(), overlay_img.size, overlay_img.mode
-                    )
+                    overlay_cache_surf[timeout] = pygame.image.frombuffer(overlay_img.tobytes(), overlay_img.size, 'RGBA')
                 overlay_surf = overlay_cache_surf[timeout]
             else:
                 overlay_surf = None
@@ -194,7 +192,7 @@ class RpiCamera(BaseCamera):
         smile_img = self._overlay
         preview_img = self._get_preview_image()
         if smile_img and preview_img:
-            smile_surf = pygame.image.fromstring(smile_img.tobytes(), smile_img.size, smile_img.mode)
+            smile_surf = pygame.image.frombuffer(smile_img.tobytes(), smile_img.size, 'RGBA')
             for _ in range(5):
                 preview_img = self._get_preview_image()
                 if preview_img:
