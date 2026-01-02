@@ -125,18 +125,41 @@ class RpiCamera(BaseCamera):
     # ------------------------------------------------------------------
 
     def preview_countdown(self, timeout, alpha=180, flash_led=None):
-        """Countdown overlay with flash and smile at the end."""
-        timeout = int(timeout)
-        if timeout < 1:
-            raise ValueError("Timeout must be >= 1")
+        """
+        Smooth countdown overlay (like Picamera v1).
+        timeout : seconds
+        alpha : overlay transparency
+        flash_led : optional LED to flash at last second
+        """
+        if not self._preview_started:
+            raise RuntimeError("Preview must be started before countdown")
 
-        for i in range(timeout, 0, -1):
-            self._draw_overlay(i, alpha)
-            if i == 2 and flash_led:
+        start_time = time.time()
+        end_time = start_time + timeout
+        last_number = None
+
+        fps = 25.0
+        frame_time = 1.0 / fps
+
+        while True:
+            now = time.time()
+            remaining = end_time - now
+            if remaining <= 0:
+                break
+
+            number = int(remaining) + 1  # Ce chiffre descend de timeout -> 1
+            if number != last_number:
+                self._draw_overlay(number, alpha)
+                last_number = number
+
+            # Flash LED à 2 secondes restantes
+            if flash_led and int(remaining) + 1 == 2:
                 flash_led.on()
-            time.sleep(1)
 
-        # Smile overlay at the end
+            pygame.event.pump()
+            time.sleep(frame_time)
+
+        # Smile overlay à la fin
         self._draw_overlay(get_translated_text("smile"), alpha)
         time.sleep(0.5)
         self._clear_overlay()
