@@ -84,3 +84,8 @@ Activez et démarrez le service :
 sudo systemctl enable iptables-startup.service
 sudo systemctl start iptables-startup.service
 ```
+
+# Config pour récupérer des vieux paquets buster
+
+à rajouter dans le fichier sudo nano /etc/apt/sources.list
+deb http://legacy.raspbian.org/raspbian buster main contrib non-free rpi
