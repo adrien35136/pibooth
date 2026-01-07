@@ -23,6 +23,18 @@ Ce fichier sert de **contexte projet permanent** pour les agents IA (GitHub Copi
 - Cause probable :
   - Limitation CPU / RAM de la Raspberry Pi 3 B+
 
+### Version actuelle de Raspberry Pi OS :
+adrien@raspberrypi:~ $ cat /etc/os-release
+PRETTY_NAME="Raspbian GNU/Linux 11 (bullseye)" 
+NAME="Raspbian GNU/Linux" VERSION_ID="11" VERSION="11 (bullseye)" VERSION_CODENAME=bullseye ID=raspbian ID_LIKE=debian HOME_URL="http://www.raspbian.org/" SUPPORT_URL="http://www.raspbian.org/RaspbianForums" BUG_REPORT_URL="http://www.raspbian.org/RaspbianBugs"
+
+adrien@raspberrypi:~ $ uname -a Linux raspberrypi
+6.1.21-v7+ #1642 SMP Mon Apr 3 17:20:52 BST 2023 armv7l GNU/Linux
+
+adrien@raspberrypi:~ $ python3 --version Python 3.9.2
+
+adrien@raspberrypi:~ $ python Python 3.9.2 (default, Mar 20 2025, 22:21:41) [GCC 10.2.1 20210110] on linux Type "help", "copyright", "credits" or "license" for more information. >>> import pygame pygame 1.9.6 Hello from the pygame community. https://www.pygame.org/contribute.html >>> import pillow Traceback (most recent call last): File "<stdin>", line 1, in <module> ModuleNotFoundError: No module named 'pillow' >>> import pyllow Traceback (most recent call last): File "<stdin>", line 1, in <module> ModuleNotFoundError: No module named 'pyllow' >>> quit() adrien@raspberrypi:~ $ gphoto2 --version gphoto2 --auto-detect gphoto2 2.5.28 Copyright (c) 2000-2021 Marcus Meissner and others gphoto2 comes with NO WARRANTY, to the extent permitted by law. You may redistribute copies of gphoto2 under the terms of the GNU General Public License. For more information about these matters, see the files named COPYING. This version of gphoto2 is using the following software versions and options: gphoto2 2.5.28 gcc, popt(m), exif, no cdk, no aa, no jpeg, no readline libgphoto2 2.5.27 standard camlibs, gcc, ltdl, EXIF libgphoto2_port 0.12.0 iolibs: disk ptpip serial usb1 usbdiskdirect usbscsi, gcc, ltdl, EXIF, USB, serial without locking Modèle Port ---------------------------------------------------------- Canon EOS 1200D usb:001,004 adrien@raspberrypi:~ $
+
 ---
 
 ### Problématique
