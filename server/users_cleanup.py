@@ -11,7 +11,7 @@ import random
 
 CHECK_INTERVAL = 10               # Seconds
 HOTSPOT_SUBNET = ipaddress.ip_network("192.168.4.0/24")
-MAX_USERS = 8
+MAX_USERS = 6
 LOCK_PATH = "/tmp/hotspot_restart.lock"
 
 # QR dcode define
