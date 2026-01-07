@@ -23,6 +23,8 @@ plugins = "/home/adrien/Documents/pibooth/pibooth/plugins/pibooth_getready_text.
 
 # Fix problem when option is added in the menu to choose the template
 
+After installed the package : pip3 install pibooth-picture-template
+
 Removed the following fonction in "/home/adrien/.local/lib/python3.9/site-packages/pibooth_picture_template.py"
 
 ```
