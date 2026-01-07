@@ -32,7 +32,7 @@ def monitor_upload_folder(path_to_save_pictures):
             time.sleep(CHECK_INTERVAL)  # éviter boucle trop rapide en cas d’erreur
 
 def get_usb_key_mounted_path(label):
-    timeout = 120  # Limite de temps pour attendre le montage de la clé USB
+    timeout = 60  # Limite de temps pour attendre le montage de la clé USB
     elapsed_time = 0
     interval = 1  # Vérifier toutes les secondes
     while elapsed_time < timeout:
