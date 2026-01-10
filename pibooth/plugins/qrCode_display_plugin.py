@@ -89,4 +89,3 @@ def state_wait_do(cfg, app, win, events):
 
         win.surface.blit(qr_image_wifi, pos_wifi)
         win.surface.blit(qr_image_other, pos_other)
-        pygame.display.update()
