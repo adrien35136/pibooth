@@ -75,3 +75,9 @@ target/
 # pyenv
 .python-version
 
+# server
+server/logs/
+server/static/thumbnails/
+server/photos
+
+

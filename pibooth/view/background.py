@@ -211,7 +211,7 @@ class IntroBackground(Background):
                 self.left_arrow = pictures.get_pygame_image("camera.png", size, vflip=False, color=self._text_color)
 
                 x = int(self._rect.width * 0.2)
-                y = int(self._rect.height // 2)
+                y = int(self._rect.height // 2.6) # valeur à modifier pour monter ou descendre le logo appareil photo
             else:
                 size = (self._rect.width * 0.3, self._rect.height * 0.3)
 
@@ -243,7 +243,7 @@ class IntroBackground(Background):
         elif self.arrow_location == ARROW_TOUCH:
             rect = pygame.Rect(self._text_border, self._text_border,
                                self._rect.width / 2 - 2 * self._text_border,
-                               self._rect.height * 0.4 - self._text_border)
+                               self._rect.height * 0.3) # valeur à modifier pour monter ou descendre l'ecriture d'intro
             align = 'bottom-center'
         else:
             rect = pygame.Rect(self._text_border, self._rect.height * 0.4,
@@ -448,6 +448,11 @@ class CaptureBackground(Background):
                                                          color=self._text_color)
             self.right_people = pictures.get_pygame_image("capture_right.png", size=size,
                                                           color=self._text_color)
+            
+            # self.left_arrow = pictures.get_pygame_image("arrow.png", size=size,
+            #                                     color=self._text_color)
+            # self.right_arrow = pictures.get_pygame_image("arrow.png", size=size,
+            #                                     color=self._text_color)
 
             x = int(self._rect.right - size[0])
             y = int(self._rect.bottom - images_height)

@@ -20,7 +20,7 @@ class ViewPlugin(object):
         # Seconds between each animated frame
         self.animated_frame_timer = PoolingTimer(0)
         # Seconds before going back to the start
-        self.choose_timer = PoolingTimer(30)
+        self.choose_timer = PoolingTimer(7)
         # Seconds to display the selected layout
         self.layout_timer = PoolingTimer(4)
         # Seconds to display the selected layout

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galerie Photos Fun</title>
+
+    <!-- Lien vers les fichiers CSS de PhotoSwipe -->
+    <link rel="stylesheet" href="/static/css/photoswipe.css">
+    <link rel="stylesheet" href="/static/css/default-skin.css">
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #333;
+        }
+
+        h1::before {
+            content: "📸";
+            font-size: 1.2em;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            justify-items: center;
+            padding: 0px;
+        }
+
+        .gallery img {
+            width: 100%;
+            object-fit: cover;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .gallery img:hover {
+            transform: scale(1.05);
+        }
+
+        #loadMore {
+            display: block;
+            margin: 30px auto;
+            padding: 12px 24px;
+            background-color: #222;
+            color: white;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        #loadMore:hover {
+            background-color: #222;
+            transform: translateY(-2px);
+        }
+
+        .pswp__button--download {
+            background-image: url('/static/css/download.svg') !important;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 24px 24px;
+            width: 44px;
+            height: 44px;
+            opacity: 0.8;
+            bottom: 0;
+            cursor: pointer;
+            z-index: 1000;
+        }
+
+        .pswp__button--download:hover {
+            opacity: 1;
+        }
+
+        .custom-on-image-button {
+            position: absolute;
+            top: calc(50% + 280px);
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px;
+            background-color: rgba(0, 123, 255, 0.9);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 10000;
+            transition: background-color 0.3s;
+        }
+
+        .custom-on-image-button:hover {
+            background-color: rgba(0, 86, 179, 0.95);
+        }
+    </style>
+
+<body>
+    <h1>Galerie Photos</h1>
+
+    <div class="gallery" id="gallery">
+        <!-- Images ajoutées par JS -->
+    </div>
+
+    <!-- Bouton + compteur -->  
+    <div style="text-align: center; margin-top: 30px;">
+        <button id="loadMore" style="margin-bottom: 2px; padding: 12px 24px;">
+            <span style="display: inline-flex; align-items: center; gap: 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="white" viewBox="0 0 24 24">
+                    <path d="M12 5v14m-7-7h14" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Charger plus d'images
+            </span>
+        </button>
+        <div id="photoCount" style="font-size: 16px; color: #555; margin-top: 10px;"></div>
+    </div>
+    
+    <!-- PhotoSwipe root -->
+    <div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="pswp__bg"></div>
+        <div class="pswp__scroll-wrap">
+            <div class="pswp__container">
+                <div class="pswp__item"></div>
+                <div class="pswp__item"></div>
+                <div class="pswp__item"></div>
+            </div>
+            <button class="custom-on-image-button">💾 Télécharger</button>
+
+            <div class="pswp__ui pswp__ui--hidden">
+                <div class="pswp__top-bar">
+                    <div class="pswp__counter"></div>
+                    <button class="pswp__button pswp__button--close" title="Fermer (Esc)"></button>
+                    <button class="pswp__button pswp__button--download" title="Télécharger"></button>
+                    <button class="pswp__button pswp__button--zoom" title="Zoom avant/arrière"></button>
+                    <div class="pswp__preloader">
+                        <div class="pswp__preloader__icn">
+                            <div class="pswp__preloader__cut">
+                                <div class="pswp__preloader__donut"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="pswp__button pswp__button--arrow--left" title="Précédent"></button>
+                <button class="pswp__button pswp__button--arrow--right" title="Suivant"></button>
+                <div class="pswp__caption">
+                    <div class="pswp__caption__center"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS -->
+    <script src="/static/js/photoswipe.min.js"></script>
+    <script src="/static/js/photoswipe-ui-default.min.js"></script>
+    <script>
+        let images = [];
+        let displayedImages = 0;
+        const imagesPerLoad = 12;
+
+        fetch('/get_images?t=' + new Date().getTime())
+            .then(response => response.json())
+            .then(fetchedImages => {
+                images = fetchedImages;
+                loadImages();
+            });
+
+        function loadImages() {
+            const gallery = document.getElementById('gallery');
+            const end = Math.min(displayedImages + imagesPerLoad, images.length);
+
+            for (let i = displayedImages; i < end; i++) {
+                const img = document.createElement('img');
+                img.src = images[i].thumb;
+                img.onclick = () => openPhotoSwipe(i);
+                gallery.appendChild(img);
+            }
+
+            displayedImages = end;
+            updatePhotoCount();
+
+            if (displayedImages >= images.length) {
+                document.getElementById('loadMore').style.display = 'none';
+            }
+        }
+
+        function updatePhotoCount() {
+            const countElem = document.getElementById('photoCount');
+            if (countElem) {
+                countElem.textContent = `${displayedImages} / ${images.length} photos`;
+            }
+        }
+
+        document.getElementById('loadMore').addEventListener('click', loadImages);
+
+        function openPhotoSwipe(index) {
+            const pswpElement = document.querySelectorAll('.pswp')[0];
+
+            const items = images.slice(0, displayedImages).map((image) => ({
+                src: image.full,
+                w: 1200,
+                h: 900
+            }));
+
+            const options = {
+                index: index,
+                bgOpacity: 0.7,
+                preload: [0, 1],
+                showHideOpacity: true,
+                tapToClose: true,
+                closeOnVerticalDrag: true,
+                getThumbBoundsFn: (index) => {
+                    const thumbnail = document.querySelectorAll('.gallery img')[index];
+                    const pageYScroll = window.pageYOffset || document.documentElement.scrollTop;
+                    const rect = thumbnail.getBoundingClientRect();
+                    return { x: rect.left, y: rect.top + pageYScroll, w: rect.width };
+                }
+            };
+
+            const lightBox = new PhotoSwipe(pswpElement, PhotoSwipeUI_Default, items, options);
+
+            lightBox.listen('gettingData', (index, item) => {
+                if (!item.downloadUrl) {
+                    item.downloadUrl = item.src;
+                }
+            });
+
+            lightBox.listen('afterChange', () => {
+                const currItem = lightBox.currItem;
+                const filename = currItem.downloadUrl.split('/').pop();
+
+                const download = () => {
+                    const link = document.createElement('a');
+                    link.href = currItem.downloadUrl;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                };
+
+                document.querySelector('.pswp__button--download').onclick = download;
+                document.querySelector('.custom-on-image-button').onclick = download;
+            });
+
+            lightBox.init();
+        }
+    </script>
+
+    <div style="margin-top: 50px; text-align: center;">
+        <a href="instagram://user?username=photomatonbreton" target="_blank" style="text-decoration: none; color: #333; font-weight: 500; display: inline-flex; align-items: center; gap: 10px; font-size: 18px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 448 512" fill="#E4405F">
+                <path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9S160.5 370.9 224.1 370.9 339 319.6 339 255.9 287.7 141 224.1 141zm0 186.6c-39.5 0-71.7-32.2-71.7-71.7s32.2-71.7 71.7-71.7 71.7 32.2 71.7 71.7-32.2 71.7-71.7 71.7zm146.4-194.3c0 14.9-12 26.9-26.9 26.9-14.9 0-26.9-12-26.9-26.9s12-26.9 26.9-26.9 26.9 12 26.9 26.9zm76.1 27.2c-1.7-35.7-9.9-67.3-36.3-93.7S374.6 26.6 338.9 24.9c-35.8-2-143.1-2-178.9 0-35.7 1.7-67.3 9.9-93.7 36.3S26.6 137.4 24.9 173.1c-2 35.8-2 143.1 0 178.9 1.7 35.7 9.9 67.3 36.3 93.7s58 34.6 93.7 36.3c35.8 2 143.1 2 178.9 0 35.7-1.7 67.3-9.9 93.7-36.3s34.6-58 36.3-93.7c2-35.8 2-143.1 0-178.9zM398.8 388c-7.8 19.7-23.1 35-42.8 42.8-29.6 11.8-99.9 9.1-131.9 9.1s-102.3 2.6-131.9-9.1c-19.7-7.8-35-23.1-42.8-42.8-11.8-29.6-9.1-99.9-9.1-131.9s-2.6-102.3 9.1-131.9c7.8-19.7 23.1-35 42.8-42.8 29.6-11.8 99.9-9.1 131.9-9.1s102.3-2.6 131.9 9.1c19.7 7.8 35 23.1 42.8 42.8 11.8 29.6 9.1 99.9 9.1 131.9s2.7 102.3-9.1 131.9z"/>
+            </svg>
+            Suivez-moi sur <strong style="color: #E4405F;">@photomatonbreton</strong>
+        </a>
+    </div>
+</body>
+</html>
