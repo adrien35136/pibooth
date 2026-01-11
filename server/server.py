@@ -39,8 +39,17 @@ def get_images():
         try:
             if os.path.exists(full_image_path):
                 with Image.open(full_image_path) as img:
-                    width, height = img.size
-        except Exception as e:
+                    real_width, real_height = img.size
+                    
+                    # Limiter les dimensions pour l'affichage tout en gardant le ratio
+                    max_dimension = 1280
+                    if real_width > max_dimension or real_height > max_dimension:
+                        ratio = min(max_dimension / real_width, max_dimension / real_height)
+                        width = int(real_width * ratio)
+                        height = int(real_height * ratio)
+                    else:
+                        width, height = real_width, real_height
+        except Exception:
             pass  # Utiliser les dimensions par défaut en cas d'erreur
 
         images.append({
