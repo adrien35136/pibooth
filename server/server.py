@@ -5,10 +5,13 @@ from  thumbnail_utils import generate_thumbnail
 from datetime import datetime
 import inotify.adapters
 import threading
+from PIL import Image
 
 app = Flask(__name__)
 
-IMAGE_FOLDER = '/photos'
+# Chemin des photos (chemin local du système de fichiers)
+IMAGE_FOLDER = os.path.join(os.path.dirname(__file__), 'photos', 'photos')
+
 THUMBNAIL_FOLDER = 'static/thumbnails'
 
 @app.route('/')
@@ -29,10 +32,22 @@ def get_images():
     for filename in files:
         thumb_path = THUMBNAIL_FOLDER + '/' + filename
         full_path = "http://192.168.4.1:8000" + '/photos/' + filename
+        full_image_path = os.path.join(IMAGE_FOLDER, filename)
+        
+        # Récupérer les dimensions réelles de l'image
+        width, height = 1200, 800
+        try:
+            if os.path.exists(full_image_path):
+                with Image.open(full_image_path) as img:
+                    width, height = img.size
+        except Exception as e:
+            pass  # Utiliser les dimensions par défaut en cas d'erreur
 
         images.append({
             'thumb': thumb_path,
-            'full': full_path
+            'full': full_path,
+            'width': width,
+            'height': height
         })
 
     return jsonify(images)

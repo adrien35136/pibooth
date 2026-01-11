@@ -213,8 +213,8 @@
 
             const items = images.slice(0, displayedImages).map((image) => ({
                 src: image.full,
-                w: 1200,
-                h: 900
+                w: image.width || 1200,
+                h: image.height || 900
             }));
 
             const options = {
