@@ -211,7 +211,7 @@
         function openPhotoSwipe(index) {
             const pswpElement = document.querySelectorAll('.pswp')[0];
 
-            const items = images.slice(0, displayedImages).map((image) => ({
+            const items = images.map((image) => ({
                 src: image.full,
                 w: image.width || 1200,
                 h: image.height || 900
@@ -226,9 +226,12 @@
                 closeOnVerticalDrag: true,
                 getThumbBoundsFn: (index) => {
                     const thumbnail = document.querySelectorAll('.gallery img')[index];
-                    const pageYScroll = window.pageYOffset || document.documentElement.scrollTop;
-                    const rect = thumbnail.getBoundingClientRect();
-                    return { x: rect.left, y: rect.top + pageYScroll, w: rect.width };
+                    if (thumbnail) {
+                        const pageYScroll = window.pageYOffset || document.documentElement.scrollTop;
+                        const rect = thumbnail.getBoundingClientRect();
+                        return { x: rect.left, y: rect.top + pageYScroll, w: rect.width };
+                    }
+                    return null;
                 }
             };
 

@@ -84,3 +84,12 @@ Activez et démarrez le service :
 sudo systemctl enable iptables-startup.service
 sudo systemctl start iptables-startup.service
 ```
+
+## Fix problems with date and time in journalctl
+
+sudo timedatectl set-local-rtc 0
+
+sudo systemctl disable systemd-timesyncd
+sudo systemctl stop systemd-timesyncd
+
+Cela permet d'eviter de mélanger plusieurs heures sur la raspberry et d'avoir des erreurs de date dans le journalctl.
